@@ -1,7 +1,12 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { evaluationFixture, promptFixture, tasksFixture } from '../features/speaking/fixtures.ts';
+import {
+  evaluationFixture,
+  promptFixture,
+  tasksFixture,
+  untranscribedEvaluationFixture,
+} from '../features/speaking/fixtures.ts';
 import { configRoute, mockFetch, type MockRoute } from '../test/mockApi.ts';
 import { latestRecorder, stubRecording } from '../test/mockRecorder.ts';
 import { renderWithProviders } from '../test/renderWithProviders.tsx';
@@ -59,12 +64,14 @@ describe('SpeakingPage', () => {
     expect(screen.getByText(/1:00 prep · 1:00 answer/)).toBeInTheDocument();
   });
 
-  it('says plainly that demo mode feedback is fixed content', async () => {
+  it('warns up front that demo mode will not transcribe or assess language', async () => {
     stubRecording();
     mockFetch(ROUTES);
     renderWithProviders(<SpeakingPage />);
 
-    expect(await screen.findByText(/fixed demo content/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/not transcribed and not assessed for language/i),
+    ).toBeInTheDocument();
   });
 
   it('shows the prompt with its situation, instruction, and bullets', async () => {
@@ -313,5 +320,92 @@ describe('SpeakingPage', () => {
     await user.click(screen.getByRole('button', { name: /practise again/i }));
 
     expect(await screen.findByRole('button', { name: /get a prompt/i })).toBeInTheDocument();
+  });
+
+  // --- never speak for the user ------------------------------------------
+
+  describe('when nothing was transcribed', () => {
+    const untranscribedRoutes = [
+      configRoute,
+      tasksRoute,
+      promptRoute,
+      { match: /POST .*\/speaking\/evaluations/, body: untranscribedEvaluationFixture },
+    ];
+
+    async function submitUntranscribed() {
+      const user = await reachRecorder();
+      await user.click(screen.getByRole('button', { name: /start recording/i }));
+      await user.click(await screen.findByRole('button', { name: /^stop$/i }));
+      await user.click(await screen.findByRole('button', { name: /submit for feedback/i }));
+      await screen.findByText(/Unofficial estimate/i);
+      return user;
+    }
+
+    it('shows no transcript rather than words the user never said', async () => {
+      stubRecording();
+      mockFetch(untranscribedRoutes);
+      await submitUntranscribed();
+
+      // The exact sentence a previous version fabricated and displayed.
+      expect(
+        screen.queryByText(/I think she should probably take the promotion/i),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/never transcribed/i)).toBeInTheDocument();
+    });
+
+    it('says plainly that the recording was not transcribed', async () => {
+      stubRecording();
+      mockFetch(untranscribedRoutes);
+      await submitUntranscribed();
+
+      expect(screen.getByText(/Your answer was not transcribed/i)).toBeInTheDocument();
+      expect(screen.getByText(/Nothing here describes what you said/i)).toBeInTheDocument();
+    });
+
+    it('shows no estimated level instead of inventing one', async () => {
+      stubRecording();
+      mockFetch(untranscribedRoutes);
+      await submitUntranscribed();
+
+      expect(screen.getByText(/Not estimated/i)).toBeInTheDocument();
+      expect(screen.queryByText('/12')).not.toBeInTheDocument();
+    });
+
+    it('marks the language dimensions as not assessed', async () => {
+      stubRecording();
+      mockFetch(untranscribedRoutes);
+      await submitUntranscribed();
+
+      expect(screen.getAllByText(/^Not assessed$/)).toHaveLength(2);
+      // Delivery really was measured, so those keep their scores.
+      expect(screen.getByText('Task Fulfillment')).toBeInTheDocument();
+    });
+
+    it('hides metrics that can only come from a transcript', async () => {
+      stubRecording();
+      mockFetch(untranscribedRoutes);
+      await submitUntranscribed();
+
+      expect(screen.getByText('Time used')).toBeInTheDocument();
+      expect(screen.getByText('Silence')).toBeInTheDocument();
+      // Word count and pace would read zero, which looks like a measurement.
+      expect(screen.queryByText('Words')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pace')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fillers')).not.toBeInTheDocument();
+    });
+
+    it('does not call the sample a rewrite of an answer nobody read', async () => {
+      stubRecording();
+      mockFetch(untranscribedRoutes);
+      await submitUntranscribed();
+
+      expect(
+        screen.getByRole('heading', { name: /what a strong answer looks like/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: /a stronger version of your answer/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/not based on your recording/i)).toBeInTheDocument();
+    });
   });
 });

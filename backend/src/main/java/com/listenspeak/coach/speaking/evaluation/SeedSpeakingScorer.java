@@ -13,15 +13,22 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Demo-mode scorer. Deterministic and rule-based, driven by the delivery
- * metrics that were actually measured from the user's recording, so the numbers
- * respond to how long they really spoke rather than being a constant.
+ * Demo-mode scorer, used when no AI provider is configured.
  *
- * <p>Confidence is always {@code LOW}: no language model looked at this, and
- * pretending otherwise would be dishonest.
+ * <p>It reports only what was genuinely measured from the user's own recording:
+ * how long they spoke, how much of the time they used, and how much of it was
+ * silence. Everything that would require understanding what they said is
+ * reported as <em>not assessed</em> rather than guessed.
+ *
+ * <p>In particular it produces no corrections and no overall level when there
+ * is no transcript. Quoting a phrase the user never said, or attaching a CELPIP
+ * band to an answer nothing has listened to, would be fabrication.
  */
 @Component
 public class SeedSpeakingScorer implements SpeakingScorer {
+
+    private static final String NOT_ASSESSED =
+            "Not assessed: demo mode has no AI provider configured, so nothing listened to this answer.";
 
     @Override
     public ContentMode mode() {
@@ -29,31 +36,72 @@ public class SeedSpeakingScorer implements SpeakingScorer {
     }
 
     @Override
-    public Assessment score(SpeakingTask task, String promptText, String transcript, DeliveryMetrics metrics) {
-        int fulfillment = scoreTaskFulfillment(metrics);
-        int listenability = scoreListenability(metrics);
-        int vocabulary = scoreVocabulary(metrics);
-        int coherence = Math.max(1, Math.round((fulfillment + listenability + vocabulary) / 3f));
+    public Assessment score(
+            SpeakingTask task,
+            String promptText,
+            String transcript,
+            boolean transcriptAvailable,
+            DeliveryMetrics metrics) {
 
-        int level = Math.round((fulfillment + listenability + vocabulary + coherence) / 4f);
+        if (!transcriptAvailable) {
+            return withoutTranscript(metrics);
+        }
+        return withTranscript(metrics);
+    }
+
+    /**
+     * No transcription available. Only pacing and use of time were measured, so
+     * only those are scored.
+     */
+    private Assessment withoutTranscript(DeliveryMetrics metrics) {
+        int fulfillment = scoreTimeUsed(metrics);
+        int listenability = scorePausing(metrics);
 
         return new Assessment(
-                level,
+                // No overall level: two of four dimensions are unknown, and both
+                // of the unknown ones are about language rather than delivery.
+                null,
                 Confidence.LOW,
                 List.of(
-                        new DimensionScore(
-                                Dimension.CONTENT_COHERENCE,
-                                coherence,
-                                "Demo mode does not analyse content. This score is derived from your delivery "
-                                        + "measurements only."),
-                        new DimensionScore(
-                                Dimension.VOCABULARY,
-                                vocabulary,
-                                "Based on %d words in %.0f seconds.".formatted(metrics.wordCount(), metrics.durationSeconds())),
+                        new DimensionScore(Dimension.CONTENT_COHERENCE, null, NOT_ASSESSED),
+                        new DimensionScore(Dimension.VOCABULARY, null, NOT_ASSESSED),
                         new DimensionScore(
                                 Dimension.LISTENABILITY,
                                 listenability,
-                                "Pace was %.0f words per minute with %d filler(s) and %.0f%% silence."
+                                "Measured from your recording: %.0f%% of it was silence and the longest pause was %.1fs. "
+                                                .formatted(metrics.silenceRatio() * 100, metrics.longestSilenceSeconds())
+                                        + "Pace and hesitation need a transcript, so they are not included."),
+                        new DimensionScore(
+                                Dimension.TASK_FULFILLMENT,
+                                fulfillment,
+                                "Measured from your recording: you used %d%% of the %d seconds available. "
+                                                .formatted(metrics.timeUsedPercent(), metrics.allowedSeconds())
+                                        + "Whether you answered the question needs a transcript.")),
+                strengths(metrics),
+                improvements(metrics),
+                // Nothing of the user's was heard, so there is nothing to correct.
+                List.of(),
+                sampleAnswer(),
+                "Set OPENAI_API_KEY and restart with APP_CONTENT_MODE=LIVE to have this answer "
+                        + "transcribed and assessed properly. Until then, use the timing above.",
+                "seed:speaking-scorer-v2");
+    }
+
+    /** A transcript exists, so word-derived measurements can be reported too. */
+    private Assessment withTranscript(DeliveryMetrics metrics) {
+        int fulfillment = scoreTimeUsed(metrics);
+        int listenability = scorePausing(metrics);
+
+        return new Assessment(
+                null,
+                Confidence.LOW,
+                List.of(
+                        new DimensionScore(Dimension.CONTENT_COHERENCE, null, NOT_ASSESSED),
+                        new DimensionScore(Dimension.VOCABULARY, null, NOT_ASSESSED),
+                        new DimensionScore(
+                                Dimension.LISTENABILITY,
+                                listenability,
+                                "Measured from your recording: %.0f words per minute, %d filler(s), %.0f%% silence."
                                         .formatted(
                                                 metrics.wordsPerMinute(),
                                                 metrics.fillerCount(),
@@ -61,30 +109,27 @@ public class SeedSpeakingScorer implements SpeakingScorer {
                         new DimensionScore(
                                 Dimension.TASK_FULFILLMENT,
                                 fulfillment,
-                                "You used %d%% of the %d seconds available."
-                                        .formatted(metrics.timeUsedPercent(), metrics.allowedSeconds()))),
+                                "Measured from your recording: %d words in %d%% of the time available."
+                                        .formatted(metrics.wordCount(), metrics.timeUsedPercent()))),
                 strengths(metrics),
                 improvements(metrics),
-                List.of(new Correction(
-                        "I think she should probably take the promotion",
-                        "I would encourage her to take the promotion",
-                        "A direct recommendation is stronger than a hedged one when the task asks for advice.")),
-                """
-                I would take the promotion, but I would not rush it. The salary increase is real and \
-                an opportunity like this does not come around often. The difficulty is her family, \
-                especially if her parents need help. So my advice is to accept, and ask the company \
-                for a six-month trial before selling the house. That way she keeps her options open. \
-                The hockey team matters less, because she can join a new one wherever she lands.
-                """
-                        .replaceAll("\\s+", " ")
-                        .trim(),
-                "Record the same task again and aim to use at least 90 percent of the time, giving two "
-                        + "clear reasons and one concession.",
-                "seed:speaking-scorer-v1");
+                List.of(),
+                sampleAnswer(),
+                "Record the same task again and aim to use at least 90 percent of the time, "
+                        + "giving two clear reasons and one concession.",
+                "seed:speaking-scorer-v2");
     }
 
-    /** Using the time is the clearest thing a metric can tell us about task fulfilment. */
-    private int scoreTaskFulfillment(DeliveryMetrics metrics) {
+    private static String sampleAnswer() {
+        // A model answer to the task, never described as a rewrite of the user's
+        // answer, because in demo mode nothing has read their answer.
+        return "A strong answer to a task like this states a position in the first sentence, gives two "
+                + "reasons with a specific detail behind each, acknowledges the strongest objection, and "
+                + "closes by restating the recommendation.";
+    }
+
+    /** Using the time is the clearest thing a metric alone can say about task fulfilment. */
+    private int scoreTimeUsed(DeliveryMetrics metrics) {
         int used = metrics.timeUsedPercent();
         if (used >= 85) return 9;
         if (used >= 70) return 7;
@@ -93,30 +138,15 @@ public class SeedSpeakingScorer implements SpeakingScorer {
         return 2;
     }
 
-    private int scoreListenability(DeliveryMetrics metrics) {
+    private int scorePausing(DeliveryMetrics metrics) {
         int score = 8;
-        double pace = metrics.wordsPerMinute();
-        if (pace < 90 || pace > 190) {
-            score -= 2;
-        }
         if (metrics.silenceRatio() > 0.35) {
             score -= 2;
         }
         if (metrics.longestSilenceSeconds() > 4) {
             score -= 1;
         }
-        if (metrics.wordCount() > 0 && metrics.fillerCount() * 100.0 / metrics.wordCount() > 6) {
-            score -= 1;
-        }
         return Math.max(1, score);
-    }
-
-    private int scoreVocabulary(DeliveryMetrics metrics) {
-        if (metrics.wordCount() >= 160) return 8;
-        if (metrics.wordCount() >= 100) return 7;
-        if (metrics.wordCount() >= 60) return 5;
-        if (metrics.wordCount() >= 25) return 3;
-        return 2;
     }
 
     private List<String> strengths(DeliveryMetrics metrics) {
@@ -124,10 +154,9 @@ public class SeedSpeakingScorer implements SpeakingScorer {
         if (metrics.timeUsedPercent() >= 70) {
             strengths.add("You used most of the time available, which gives a listener enough to work with.");
         }
-        if (metrics.wordsPerMinute() >= 110 && metrics.wordsPerMinute() <= 170) {
-            strengths.add("Your pace was in a comfortable range to follow.");
+        if (metrics.silenceRatio() <= 0.25) {
+            strengths.add("You kept going without long gaps, which is what makes an answer easy to follow.");
         }
-        // Always exactly two, whatever the metrics happened to show.
         strengths.add("You completed a full attempt under time pressure, which is the habit that matters most.");
         strengths.add("You submitted a recording within the time limit, which is what practice is for.");
         return List.copyOf(strengths.subList(0, 2));
@@ -148,19 +177,13 @@ public class SeedSpeakingScorer implements SpeakingScorer {
                     "Long silences break the listener's thread and cost you time.",
                     "When you lose the thread, restate the question in your own words and continue from there."));
         }
-        if (metrics.wordCount() > 0 && metrics.fillerCount() * 100.0 / metrics.wordCount() > 5) {
-            improvements.add(new Improvement(
-                    "Fillers appeared often.",
-                    "They make an otherwise clear answer harder to follow.",
-                    "Replace a filler with a short silent pause; a pause is far less noticeable."));
-        }
-        // Always exactly two, whatever the metrics happened to show.
         improvements.add(new Improvement(
-                "The answer stated a position but supported it lightly.",
-                "Assessors look for reasons, not just a conclusion.",
-                "For each point, add one sentence beginning \"because\" or \"which means\"."));
+                "Demo mode cannot tell you anything about your language.",
+                "Content, vocabulary, and accuracy are the parts that move a score, and none of them "
+                        + "were assessed here.",
+                "Configure an OpenAI key to get a real assessment of what you said."));
         improvements.add(new Improvement(
-                "The answer did not signal its structure.",
+                "Signal the structure of your answer.",
                 "A listener who cannot tell how many points are coming has to work harder.",
                 "Open with \"There are two reasons\" and then mark each one."));
         return List.copyOf(improvements.subList(0, 2));

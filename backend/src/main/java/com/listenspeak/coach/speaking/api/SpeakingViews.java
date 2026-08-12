@@ -77,7 +77,9 @@ public final class SpeakingViews {
         }
     }
 
-    public record DimensionView(String dimension, String label, int score, String evidence) {}
+    /** {@code score} is null when the dimension could not be assessed. */
+    public record DimensionView(
+            String dimension, String label, Integer score, boolean assessed, String evidence) {}
 
     public record ImprovementView(String issue, String whyItMatters, String howToFix) {}
 
@@ -91,9 +93,12 @@ public final class SpeakingViews {
             UUID id,
             UUID promptId,
             int taskNumber,
-            int estimatedLevel,
+            /** Null when no honest estimate is possible; the UI must not invent one. */
+            Integer estimatedLevel,
             String confidence,
             String disclaimer,
+            /** False when nothing could be transcribed, so no text here is the user's. */
+            boolean transcriptAvailable,
             List<DimensionView> dimensions,
             List<String> strengths,
             List<ImprovementView> improvements,
@@ -112,11 +117,13 @@ public final class SpeakingViews {
                     evaluation.estimatedLevel(),
                     evaluation.confidence().name(),
                     AI_ESTIMATE_NOTICE,
+                    evaluation.transcriptAvailable(),
                     evaluation.dimensions().stream()
                             .map(dimension -> new DimensionView(
                                     dimension.dimension().name(),
                                     dimension.dimension().label(),
                                     dimension.score(),
+                                    dimension.assessed(),
                                     dimension.evidence()))
                             .toList(),
                     evaluation.strengths(),

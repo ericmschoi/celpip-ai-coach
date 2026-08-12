@@ -37,15 +37,19 @@ export const evaluationSchema = z.object({
   id: z.string().uuid(),
   promptId: z.string().uuid(),
   taskNumber: z.number().int(),
-  estimatedLevel: z.number().int().min(1).max(12),
+  // Null when no honest estimate is possible; the UI must not invent one.
+  estimatedLevel: z.number().int().min(1).max(12).nullable().optional(),
   confidence: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   disclaimer: z.string(),
+  // False when nothing could be transcribed, so nothing here is the user's words.
+  transcriptAvailable: z.boolean(),
   dimensions: z
     .array(
       z.object({
         dimension: z.enum(DIMENSION_ORDER),
         label: z.string(),
-        score: z.number().int().min(1).max(12),
+        score: z.number().int().min(1).max(12).nullable().optional(),
+        assessed: z.boolean(),
         evidence: z.string(),
       }),
     )

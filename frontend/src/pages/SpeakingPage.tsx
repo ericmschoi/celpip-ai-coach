@@ -52,8 +52,9 @@ export function SpeakingPage() {
 
       {config.data?.contentMode === 'SEED' && (
         <Callout tone="warning" title="Demo mode">
-          Recording, timing, and delivery measurements are real. The transcript and the feedback are
-          fixed demo content, because no AI provider is configured.
+          No AI provider is configured, so your answer will be recorded and measured but{' '}
+          <strong>not transcribed and not assessed for language</strong>. You will get real timing
+          and pausing figures, and nothing that claims to know what you said.
         </Callout>
       )}
 

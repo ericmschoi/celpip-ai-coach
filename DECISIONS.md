@@ -270,3 +270,31 @@ it. If one ever does, that field gets promoted to a real attribute alongside the
 Attempts and evaluations are written twice — once keyed by the thing they belong to, once keyed by
 time — so that "was this already submitted" and "show my history" are both single queries.
 Duplicating a small item is cheaper and simpler than a global secondary index.
+
+---
+
+## ADR-018 — Nothing may be attributed to the user that the user did not say
+
+**Status:** accepted (bug fix after phase 4)
+
+A demo-mode recording of pure silence produced a full evaluation whose "What we heard" section
+showed a fluent, detailed answer. The seed transcriber returned a fixed sample string regardless of
+its input, so the app told the user they had said something they had not.
+
+Three changes, because one would not have been enough:
+
+1. `Transcriber` now documents that implementations may only return words actually spoken, and
+   carries `producesRealTranscript()` so "cannot hear" is distinguishable from "heard nothing".
+   `SeedTranscriber` returns an empty string.
+2. `SpeechPresence` refuses a silent recording before transcription or scoring. Evaluating silence
+   produces output indistinguishable from evaluating speech, so the right answer is to refuse.
+3. `estimatedLevel` and dimension scores became nullable, so "not assessed" is representable. Demo
+   mode now reports Content/Coherence and Vocabulary as not assessed, gives no overall level, and
+   returns no corrections. Previously it derived all four scores from delivery metrics, which
+   dressed up "we measured your pauses" as "we judged your vocabulary".
+
+**Cost:** demo mode gives visibly less than it used to. That is the point — what it gives is now
+true. The UI states plainly that no provider is configured and that nothing describes what was said.
+
+**The general rule this encodes:** when a capability is missing, say so. Never substitute plausible
+content for absent content, because the user cannot tell the difference and will believe it.

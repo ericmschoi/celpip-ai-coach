@@ -241,8 +241,27 @@ runs on every assessment, whatever produced it:
 | Blank evidence replaced, never shown empty                 | An empty evidence field looks like a bug                 |
 | Missing sample answer or next drill rejected               | Those are the actionable half of the feedback            |
 
-In demo mode, `SeedSpeakingScorer` produces a deterministic rule-based assessment from the real
-measured metrics, and always reports `LOW` confidence, because no language model looked at it.
+### Never speaking for the user
+
+A transcript is a claim about what someone said, so it may only ever contain words they actually
+said. Three rules enforce this:
+
+1. **`SeedTranscriber` returns an empty string.** It cannot hear, so it reports nothing. An earlier
+   version returned a fixed sample answer, which the results screen then displayed under "What we
+   heard" — including when the user had recorded silence. That was fabrication and is now covered by
+   tests on both sides.
+2. **Silent recordings are refused before anything is transcribed or scored.** `SpeechPresence`
+   rejects a recording that is at least 95% silence or holds under 1.5 seconds of audible sound. In
+   `LIVE` mode this also saves a provider call.
+3. **Absence is representable.** `estimatedLevel` and each dimension score are nullable. When no
+   transcription is available, demo mode reports Content/Coherence and Vocabulary as *not assessed*,
+   gives no overall level, and returns no corrections, rather than deriving numbers from delivery
+   metrics and presenting them as language judgements. `LIVE` scoring refuses outright to score an
+   empty transcript.
+
+In demo mode, `SeedSpeakingScorer` scores only what was genuinely measured from the user's own audio
+— use of the time and pausing — always reports `LOW` confidence, and labels its sample answer as a
+general example rather than a rewrite of an answer nothing has read.
 
 ---
 

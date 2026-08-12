@@ -24,27 +24,51 @@ export interface EvaluationPanelProps {
 export function EvaluationPanel({ evaluation, onPractiseAgain }: EvaluationPanelProps) {
   const { metrics } = evaluation;
 
+  // Word count, pace, and fillers are all derived from a transcript. Without
+  // one they would all read zero, which looks like a measurement rather than
+  // an absence, so they are not shown at all.
+  const transcribed = evaluation.transcriptAvailable;
+
   return (
     <div className="space-y-6">
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-ink-muted">Unofficial estimate</p>
-            <p className="mt-1 text-4xl font-semibold tabular-nums">
-              {evaluation.estimatedLevel}
-              <span className="text-2xl text-ink-subtle">/12</span>
-            </p>
-            <p className="mt-1 text-sm text-ink-muted">
-              Confidence: {evaluation.confidence.toLowerCase()} —{' '}
-              {CONFIDENCE_EXPLANATION[evaluation.confidence]}
-            </p>
+            {evaluation.estimatedLevel == null ? (
+              <>
+                <p className="mt-1 text-2xl font-semibold text-ink-subtle">Not estimated</p>
+                <p className="mt-1 text-sm text-ink-muted">
+                  A level cannot be estimated without assessing what you said.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 text-4xl font-semibold tabular-nums">
+                  {evaluation.estimatedLevel}
+                  <span className="text-2xl text-ink-subtle">/12</span>
+                </p>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Confidence: {evaluation.confidence.toLowerCase()} —{' '}
+                  {CONFIDENCE_EXPLANATION[evaluation.confidence]}
+                </p>
+              </>
+            )}
           </div>
           <Button variant="secondary" onClick={onPractiseAgain}>
             Practise again
           </Button>
         </div>
 
-        <Callout tone="warning" className="mt-6">
+        {!transcribed && (
+          <Callout tone="warning" title="Your answer was not transcribed" className="mt-6">
+            No AI provider is configured, so nothing listened to this recording. Everything below is
+            measured from the audio itself — how long you spoke and how much of it was silence.
+            Nothing here describes what you said.
+          </Callout>
+        )}
+
+        <Callout tone="warning" className="mt-4">
           {evaluation.disclaimer}
         </Callout>
       </Card>
@@ -56,10 +80,21 @@ export function EvaluationPanel({ evaluation, onPractiseAgain }: EvaluationPanel
             <div key={dimension.dimension}>
               <div className="flex items-center gap-3">
                 <dt className="w-44 shrink-0 text-sm font-medium">{dimension.label}</dt>
-                <ScoreBar score={dimension.score} />
-                <span className="w-10 shrink-0 text-right font-mono text-sm tabular-nums">
-                  {dimension.score}
-                </span>
+                {dimension.assessed && dimension.score != null ? (
+                  <>
+                    <ScoreBar score={dimension.score} />
+                    <span className="w-24 shrink-0 text-right font-mono text-sm tabular-nums">
+                      {dimension.score}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-2 flex-1 rounded-full bg-line/60" aria-hidden="true" />
+                    <span className="w-24 shrink-0 text-right text-xs text-ink-subtle">
+                      Not assessed
+                    </span>
+                  </>
+                )}
               </div>
               <dd className="mt-1 pl-0 text-sm text-ink-muted sm:pl-47">{dimension.evidence}</dd>
             </div>
@@ -113,9 +148,14 @@ export function EvaluationPanel({ evaluation, onPractiseAgain }: EvaluationPanel
       )}
 
       <Card>
-        <h2 className="mb-2 text-lg">A stronger version of your answer</h2>
+        {/* Only a rewrite of the user's answer when the user's answer was read. */}
+        <h2 className="mb-2 text-lg">
+          {transcribed ? 'A stronger version of your answer' : 'What a strong answer looks like'}
+        </h2>
         <p className="mb-4 text-sm text-ink-subtle">
-          Same points you made, expressed more clearly. Not a script to memorise.
+          {transcribed
+            ? 'Same points you made, expressed more clearly. Not a script to memorise.'
+            : 'A general example for this kind of task. It is not based on your recording.'}
         </p>
         <p className="text-sm leading-relaxed text-ink-muted">{evaluation.sampleAnswer}</p>
 
@@ -131,20 +171,34 @@ export function EvaluationPanel({ evaluation, onPractiseAgain }: EvaluationPanel
           aria-label="Delivery measurements"
         >
           {[
-            { label: 'Time used', value: `${metrics.timeUsedPercent}%` },
-            { label: 'Words', value: String(metrics.wordCount) },
-            { label: 'Pace', value: `${metrics.wordsPerMinute} wpm` },
-            { label: 'Fillers', value: String(metrics.fillerCount) },
-            { label: 'Repeated starts', value: String(metrics.repeatedStarts) },
-            { label: 'Silence', value: `${metrics.silencePercent}%` },
-            { label: 'Longest pause', value: `${metrics.longestSilenceSeconds.toFixed(1)}s` },
-            { label: 'Duration', value: `${metrics.durationSeconds.toFixed(1)}s` },
-          ].map((item) => (
-            <div key={item.label}>
-              <dt className="text-xs text-ink-subtle">{item.label}</dt>
-              <dd className="mt-0.5 font-mono tabular-nums">{item.value}</dd>
-            </div>
-          ))}
+            { label: 'Time used', value: `${metrics.timeUsedPercent}%`, needsTranscript: false },
+            {
+              label: 'Duration',
+              value: `${metrics.durationSeconds.toFixed(1)}s`,
+              needsTranscript: false,
+            },
+            { label: 'Silence', value: `${metrics.silencePercent}%`, needsTranscript: false },
+            {
+              label: 'Longest pause',
+              value: `${metrics.longestSilenceSeconds.toFixed(1)}s`,
+              needsTranscript: false,
+            },
+            { label: 'Words', value: String(metrics.wordCount), needsTranscript: true },
+            { label: 'Pace', value: `${metrics.wordsPerMinute} wpm`, needsTranscript: true },
+            { label: 'Fillers', value: String(metrics.fillerCount), needsTranscript: true },
+            {
+              label: 'Repeated starts',
+              value: String(metrics.repeatedStarts),
+              needsTranscript: true,
+            },
+          ]
+            .filter((item) => transcribed || !item.needsTranscript)
+            .map((item) => (
+              <div key={item.label}>
+                <dt className="text-xs text-ink-subtle">{item.label}</dt>
+                <dd className="mt-0.5 font-mono tabular-nums">{item.value}</dd>
+              </div>
+            ))}
         </dl>
         <p className="mt-4 text-xs text-ink-subtle">
           These are measurements of pace and pausing, not a pronunciation assessment. Nothing here
@@ -154,7 +208,14 @@ export function EvaluationPanel({ evaluation, onPractiseAgain }: EvaluationPanel
 
       <Card>
         <h2 className="mb-4 text-lg">What we heard</h2>
-        <p className="text-sm leading-relaxed text-ink-muted">{evaluation.transcript}</p>
+        {transcribed ? (
+          <p className="text-sm leading-relaxed text-ink-muted">{evaluation.transcript}</p>
+        ) : (
+          <p className="text-sm leading-relaxed text-ink-subtle">
+            Nothing. Demo mode has no AI provider configured, so your recording was measured but
+            never transcribed. Rather than show you words you did not say, this section is empty.
+          </p>
+        )}
       </Card>
     </div>
   );

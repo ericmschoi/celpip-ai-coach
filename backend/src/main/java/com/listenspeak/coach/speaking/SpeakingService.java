@@ -15,6 +15,7 @@ import com.listenspeak.coach.speaking.domain.SpeakingEvaluation;
 import com.listenspeak.coach.speaking.domain.SpeakingPrompt;
 import com.listenspeak.coach.speaking.evaluation.RecordingAnalyzer;
 import com.listenspeak.coach.speaking.evaluation.ScoreGuard;
+import com.listenspeak.coach.speaking.evaluation.SpeechPresence;
 import com.listenspeak.coach.speaking.evaluation.SpeakingScorer;
 import com.listenspeak.coach.speaking.evaluation.Transcriber;
 import com.listenspeak.coach.speaking.prompts.PromptGenerator;
@@ -114,10 +115,21 @@ public class SpeakingService {
         try (UploadedRecording upload = UploadedRecording.accept(recording, properties.speaking())) {
             RecordingAnalyzer.Measurements measurements = measure(upload);
             requireSensibleDuration(measurements, prompt);
+            requireSpeech(measurements);
 
             usageLimiter.consume(ownerId, LimitedAction.SPEAKING_EVALUATION);
 
-            String transcript = transcriber.transcribe(upload.path(), upload.filename());
+            String transcript = transcriber.transcribe(upload.path(), upload.filename()).trim();
+
+            // A transcriber that can hear but returned nothing means the audio
+            // held no recognisable speech. A transcriber that cannot hear at all
+            // is a missing capability, not a silent user - and the difference
+            // has to survive all the way to the screen.
+            boolean transcriptAvailable = transcriber.producesRealTranscript();
+            if (transcriptAvailable && transcript.isEmpty()) {
+                throw ApiException.validation(
+                        "No speech could be recognised in that recording. Check your microphone and try again.");
+            }
 
             DeliveryMetrics metrics = DeliveryMetrics.of(
                     transcript,
@@ -127,7 +139,7 @@ public class SpeakingService {
                     measurements.longestSilenceSeconds());
 
             SpeakingScorer.Assessment assessment = scoreGuard.validate(
-                    scorer().score(task, promptText(prompt), transcript, metrics));
+                    scorer().score(task, promptText(prompt), transcript, transcriptAvailable, metrics));
 
             SpeakingEvaluation evaluation = new SpeakingEvaluation(
                     UUID.randomUUID(),
@@ -135,6 +147,7 @@ public class SpeakingService {
                     prompt.id(),
                     prompt.taskNumber(),
                     transcript,
+                    transcriptAvailable,
                     metrics,
                     assessment.estimatedLevel(),
                     assessment.confidence(),
@@ -179,6 +192,18 @@ public class SpeakingService {
                     ErrorCode.UNSUPPORTED_MEDIA_TYPE,
                     "That file could not be read as audio. Try recording again.",
                     e);
+        }
+    }
+
+    /**
+     * Refuses an empty recording outright. Without this, someone who pressed
+     * stop immediately or had a muted microphone would receive an evaluation of
+     * silence, which reads exactly like an evaluation of speech.
+     */
+    private void requireSpeech(RecordingAnalyzer.Measurements measurements) {
+        if (!SpeechPresence.hasSpeech(measurements)) {
+            throw ApiException.validation(
+                    "That recording is silent. Check that your microphone is working, then record your answer again.");
         }
     }
 

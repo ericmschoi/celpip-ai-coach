@@ -53,9 +53,20 @@ class AudioPipelineTest {
         assembler = new AudioAssembler(ffmpeg, qualityGate);
     }
 
-    /** A tone at a realistic speech level, which passes the quality gate. */
+    /**
+     * A tone at a realistic speech level, which passes the quality gate.
+     *
+     * <p>The filename carries a unique counter because DialogueRenderer calls
+     * the fake text-to-speech concurrently: a name derived only from frequency
+     * and duration let two threads write and read the same file at once, which
+     * truncated segments and failed assembly intermittently.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger toneCounter =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private byte[] tone(double seconds, int frequency) {
-        Path file = scratch.resolve("tone-%d-%s.wav".formatted(frequency, seconds));
+        Path file = scratch.resolve(
+                "tone-%d-%s-%d.wav".formatted(frequency, seconds, toneCounter.incrementAndGet()));
         Ffmpeg.Result result = ffmpeg.ffmpeg(List.of(
                 "-loglevel", "error",
                 "-f", "lavfi",

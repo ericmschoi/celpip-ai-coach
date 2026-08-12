@@ -15,7 +15,8 @@ import java.util.List;
 public interface SpeakingScorer {
 
     record Assessment(
-            int estimatedLevel,
+            /** Null when no honest overall estimate is possible. */
+            Integer estimatedLevel,
             SpeakingEvaluation.Confidence confidence,
             List<SpeakingEvaluation.DimensionScore> dimensions,
             List<String> strengths,
@@ -27,5 +28,16 @@ public interface SpeakingScorer {
 
     ContentMode mode();
 
-    Assessment score(SpeakingTask task, String promptText, String transcript, DeliveryMetrics metrics);
+    /**
+     * @param transcript exactly what the user said; empty when transcription was
+     *     unavailable, in which case nothing returned may claim to describe
+     *     their words
+     * @param transcriptAvailable whether a real transcript exists
+     */
+    Assessment score(
+            SpeakingTask task,
+            String promptText,
+            String transcript,
+            boolean transcriptAvailable,
+            DeliveryMetrics metrics);
 }

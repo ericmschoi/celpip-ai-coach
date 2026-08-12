@@ -5,30 +5,29 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.stereotype.Component;
 
 /**
- * Demo-mode transcriber. It cannot hear anything, so it returns a fixed sample
- * answer and the UI labels the whole evaluation as demo output.
+ * Demo-mode transcriber, for when no provider is configured.
  *
- * <p>This exists so the recorder, the timers, the upload validation, the
- * metrics, and the results screen are all exercisable with no API key.
+ * <p>It cannot hear anything, so it returns <strong>nothing</strong>. It must
+ * never return sample text: a previous version returned a fixed answer, which
+ * the results screen then displayed under "What we heard" even when the user
+ * had said nothing at all. Words the user did not say must never be attributed
+ * to them.
+ *
+ * <p>Everything else in the flow — recording, timers, upload validation, FFmpeg
+ * measurement, the results screen — is still exercised; only the parts that
+ * genuinely require hearing the audio are reported as unavailable.
  */
 @Component
 @ConditionalOnMissingBean(OpenAiTranscriber.class)
 public class SeedTranscriber implements Transcriber {
 
-    static final String SAMPLE_TRANSCRIPT =
-            """
-            So, um, I think she should probably take the promotion, because it's a lot more money \
-            and, you know, that kind of opportunity doesn't come around every year. But I mean, \
-            moving away from her family is a big thing, especially if her parents are getting older \
-            and they need help sometimes. I would tell her to, uh, to ask the company if she can \
-            try it for six months first, and then decide. That way she doesn't have to sell her \
-            house right away. And honestly, the hockey team, she can find another team, that's not \
-            the main issue. The main issue is the family. So my advice is take it, but ask for a \
-            trial period, and go home once a month.
-            """;
-
     @Override
     public String transcribe(Path recording, String filename) {
-        return SAMPLE_TRANSCRIPT.replaceAll("\\s+", " ").trim();
+        return "";
+    }
+
+    @Override
+    public boolean producesRealTranscript() {
+        return false;
     }
 }
