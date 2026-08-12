@@ -214,3 +214,59 @@ in `.env.e2e` and loaded exclusively by `vite build --mode e2e`.
 A production build therefore does not contain the hook at all — it is dead-code eliminated — so
 there is no runtime flag an attacker could flip. Everything downstream of the hook (upload
 validation, measurement, scoring, rendering) is the real code path.
+
+---
+
+## ADR-015 — The API is served through CloudFront, not directly from the load balancer
+
+**Status:** accepted (phase 4)
+
+`/api/*`, `/actuator/health`, and `/v3/api-docs*` are additional CloudFront behaviours pointing at
+the load balancer, with caching disabled and all viewer headers forwarded.
+
+This solves three problems with one decision: the browser is always on HTTPS even though the load
+balancer has no ACM certificate; the app is same-origin, so there is no CORS preflight in
+production at all; and the bundle needs no absolute API URL compiled into it.
+
+**Cost:** every API call takes one extra network hop, and the load balancer origin remains reachable
+over plain HTTP by anyone who finds its DNS name. Every route behind it requires a Cognito token, so
+this exposes nothing, and the hardening options are written down in `docs/security.md`.
+
+---
+
+## ADR-016 — Tokens live in sessionStorage, not a cookie
+
+**Status:** accepted (phase 4)
+
+Sign-in is Authorization Code + PKCE against the Cognito hosted UI. The resulting tokens are kept in
+`sessionStorage` and attached explicitly by the API client.
+
+The alternative — an HttpOnly cookie — would resist XSS better, but it is attached to requests
+automatically, which reintroduces CSRF and would require a token-based defence on every mutating
+route. With a stateless bearer-token API and a single private user, `sessionStorage` keeps the
+threat model simple and honest: nothing is ambient, so nothing can be ridden.
+
+**Cost:** an XSS bug would expose the access token. The mitigations are the strict CSP-shaped
+posture of a small SPA with no third-party scripts, a one-hour access-token lifetime, and token
+revocation enabled on the Cognito client.
+
+---
+
+## ADR-017 — Domain objects are stored as JSON in one DynamoDB attribute
+
+**Status:** accepted (phase 4)
+
+Exercises, attempts, prompts, and evaluations are serialised into a single `payload` attribute
+rather than mapped attribute by attribute.
+
+Every access pattern is "fetch the whole item for one user" or "list this user's recent items", so
+per-attribute mapping would buy nothing and would mean hand-writing an enhanced-client schema for
+every nested record — including lists of records, which is where that mapping gets tedious and
+error-prone.
+
+**Cost:** DynamoDB cannot filter or project on a field inside the payload. No access pattern needs
+it. If one ever does, that field gets promoted to a real attribute alongside the payload.
+
+Attempts and evaluations are written twice — once keyed by the thing they belong to, once keyed by
+time — so that "was this already submitted" and "show my history" are both single queries.
+Duplicating a small item is cheaper and simpler than a global secondary index.

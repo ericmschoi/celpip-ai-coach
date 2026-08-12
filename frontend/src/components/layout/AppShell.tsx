@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../../features/auth/useAuth.ts';
 import { cn } from '../../lib/cn.ts';
 import { IndependenceNotice } from '../Disclaimer.tsx';
 
@@ -15,6 +16,8 @@ function navClass({ isActive }: { isActive: boolean }): string {
 }
 
 export function AppShell() {
+  const auth = useAuth();
+
   return (
     <div className="flex min-h-dvh flex-col">
       <a className="skip-link" href="#main">
@@ -45,6 +48,15 @@ export function AppShell() {
                 {item.label}
               </NavLink>
             ))}
+            {auth.mode === 'COGNITO' && auth.signedIn && (
+              <button
+                type="button"
+                onClick={auth.signOut}
+                className="ml-1 rounded-lg px-3 py-2 text-sm font-medium text-ink-subtle transition-colors hover:text-ink"
+              >
+                Sign out
+              </button>
+            )}
           </nav>
         </div>
       </header>

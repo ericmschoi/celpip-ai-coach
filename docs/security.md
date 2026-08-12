@@ -153,16 +153,44 @@ the speaker's opinion.
 - CORS is an explicit origin allowlist with `allowCredentials=false`. No wildcard, ever.
 - **CSRF protection is disabled deliberately.** The API is stateless and reads credentials only from
   the `Authorization` header, never from an ambient cookie, so no cross-site request can carry the
-  caller's identity. **If the token is ever moved into a cookie, CSRF protection must be reinstated
-  in the same change.**
+  caller's identity. Tokens are held in `sessionStorage`, which is never attached to a request
+  automatically. **If the token is ever moved into a cookie, CSRF protection must be reinstated in
+  the same change.**
+- Sign-in uses Authorization Code with PKCE against the Cognito hosted UI. The browser client has no
+  secret, and an intercepted authorization code cannot be redeemed without the verifier.
 - The S3 buckets block all public access; CloudFront reaches the static bucket through Origin Access
   Control only.
 
 ## IAM
 
 The Fargate task role is scoped to exactly one DynamoDB table, one S3 bucket, and one secret, with
-enumerated actions. No `Action: "*"` and no `Resource: "*"` is granted anywhere without a written
-justification in this file. There is currently none.
+enumerated actions. No `Action: "*"` is granted anywhere in the stack, and a CDK assertion test
+fails the build if one appears.
+
+**The single justified `Resource: "*"`:** `ecr:GetAuthorizationToken` on the ECS task *execution*
+role. That call requests an account-scoped registry token and does not support resource-level
+permissions, so AWS requires `"*"`. It grants no access to any image by itself — pulling still
+requires `ecr:BatchGetImage` on the specific repository, which is scoped.
+
+One wildcard was removed rather than justified: CDK's `BucketDeployment` grants its lambda
+`cloudfront:CreateInvalidation` on `"*"` when you wire a distribution to it. The stack therefore
+does not wire one, and the deploy workflow invalidates `/index.html` with the AWS CLI instead.
+
+## Deployed network posture
+
+The load balancer accepts HTTP on port 80 from anywhere, and the Fargate task's security group
+accepts traffic only from the load balancer's security group. The task is not reachable directly.
+
+Browsers never talk to the load balancer: `/api/*` is routed through CloudFront, so the browser is
+always on HTTPS and the app is same-origin, which is also why no CORS preflight happens in
+production.
+
+**Accepted trade-off:** the load balancer origin is reachable over plain HTTP by anyone who
+discovers its DNS name. Every route behind it still requires a valid Cognito access token, so this
+exposes no data — but a client that deliberately called the origin directly would send its bearer
+token unencrypted. Nothing in this app does that. The hardening step, if this ever mattered, is to
+restrict the load balancer's security group to the AWS-managed CloudFront origin-facing prefix list,
+or to put an ACM certificate on the load balancer. Both are noted in `docs/aws-runbook.md`.
 
 ## Reporting
 

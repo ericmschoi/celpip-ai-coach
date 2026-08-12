@@ -67,5 +67,14 @@ jobs:
             -c env=${{ inputs.environment }} \
             -c region=${{ env.AWS_REGION }}
 
+      - name: Invalidate the cached entry point
+        run: |
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name listenspeak-${{ inputs.environment }} \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" --paths '/index.html'
+
       - name: Smoke test
         run: ./scripts/smoke-test.sh ${{ inputs.environment }}

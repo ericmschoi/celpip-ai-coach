@@ -70,6 +70,11 @@ app:
       - audio/mpeg
       - audio/wav
     retain-recordings: ${APP_SPEAKING_RETAIN_RECORDINGS:false}
+  media:
+    ffmpeg-path: ${APP_MEDIA_FFMPEG_PATH:ffmpeg}
+    ffprobe-path: ${APP_MEDIA_FFPROBE_PATH:ffprobe}
+    # Empty means the system temp directory.
+    temp-dir: ${APP_MEDIA_TEMP_DIR:}
   storage:
     mode: ${APP_STORAGE_MODE:LOCAL}
     dynamodb-table: ${APP_DYNAMODB_TABLE:}

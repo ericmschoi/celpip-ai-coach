@@ -60,7 +60,7 @@ test-infra: ## CDK assertion tests
 	cd infra && npm run test
 
 lint: lint-frontend ## Lint everything
-	cd infra && npx tsc --noEmit
+	cd infra && npx tsc --noEmit && npx prettier --check .
 
 lint-frontend: ## Lint and format-check the frontend
 	cd frontend && npm run lint
