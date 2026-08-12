@@ -1,0 +1,71 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, prod]
+        default: dev
+        required: true
+
+# Authentication is GitHub OIDC only. No long-lived AWS keys are stored in
+# GitHub secrets; see docs/aws-runbook.md for the role trust policy.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ca-central-1
+
+jobs:
+  deploy:
+    # `prod` must be configured as a protected GitHub environment with a
+    # required reviewer, which is what gates production behind manual approval.
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build frontend bundle
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_AUTH_MODE: COGNITO
+          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_REDIRECT_URI: ${{ vars.VITE_COGNITO_REDIRECT_URI }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy infrastructure and backend image
+        working-directory: infra
+        run: |
+          npm ci
+          npx cdk deploy --require-approval never \
+            -c env=${{ inputs.environment }} \
+            -c region=${{ env.AWS_REGION }}
+
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh ${{ inputs.environment }}

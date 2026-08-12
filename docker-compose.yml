@@ -1,0 +1,23 @@
+# Local dependencies only. The backend and frontend run on the host so that
+# rebuilds stay fast; `make dev` starts them.
+services:
+  localstack:
+    image: localstack/localstack:4.9
+    container_name: listenspeak-localstack
+    ports:
+      - '4566:4566'
+    environment:
+      SERVICES: s3,dynamodb
+      DEBUG: '0'
+      # Nothing here is a real credential; LocalStack ignores the values.
+      AWS_DEFAULT_REGION: ca-central-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:4566/_localstack/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  localstack-data:

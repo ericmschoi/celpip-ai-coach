@@ -1,0 +1,110 @@
+spring:
+  application:
+    name: listenspeak-backend
+  threads:
+    virtual:
+      enabled: true
+  servlet:
+    multipart:
+      # Bounded well below the provider limit; the speaking endpoint enforces
+      # its own limit again so the check is not only a container setting.
+      max-file-size: 15MB
+      max-request-size: 16MB
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  tomcat:
+    max-swallow-size: 20MB
+    connection-timeout: 20s
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    com.listenspeak.coach: INFO
+
+app:
+  content-mode: ${APP_CONTENT_MODE:SEED}
+  auth:
+    mode: ${APP_AUTH_MODE:LOCAL_STUB}
+    issuer-uri: ${APP_COGNITO_ISSUER_URI:}
+    user-pool-id: ${APP_COGNITO_USER_POOL_ID:}
+    client-id: ${APP_COGNITO_CLIENT_ID:}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  limits:
+    listening-per-day: ${APP_LIMITS_LISTENING_PER_DAY:20}
+    speaking-per-day: ${APP_LIMITS_SPEAKING_PER_DAY:30}
+    burst-per-minute: ${APP_LIMITS_BURST_PER_MINUTE:5}
+  speaking:
+    max-upload-bytes: ${APP_SPEAKING_MAX_UPLOAD_BYTES:15728640}
+    allowed-content-types:
+      - audio/webm
+      - audio/ogg
+      - audio/mp4
+      - audio/mpeg
+      - audio/wav
+    retain-recordings: ${APP_SPEAKING_RETAIN_RECORDINGS:false}
+  storage:
+    mode: ${APP_STORAGE_MODE:LOCAL}
+    dynamodb-table: ${APP_DYNAMODB_TABLE:}
+    audio-bucket: ${APP_AUDIO_BUCKET:}
+    local-path: ${APP_STORAGE_LOCAL_PATH:./.local-data}
+    presigned-url-ttl: ${APP_PRESIGNED_URL_TTL:15m}
+    exercise-ttl: ${APP_EXERCISE_TTL:30d}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    generation-model: ${OPENAI_GENERATION_MODEL:gpt-5.6-luna}
+    scoring-model: ${OPENAI_SCORING_MODEL:gpt-5.6-terra}
+    tts-model: ${OPENAI_TTS_MODEL:gpt-4o-mini-tts}
+    transcription-model: ${OPENAI_TRANSCRIPTION_MODEL:gpt-transcribe}
+    request-timeout: ${OPENAI_REQUEST_TIMEOUT:120s}
+    max-retries: ${OPENAI_MAX_RETRIES:2}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    com.listenspeak.coach: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+app:
+  content-mode: SEED
+  auth:
+    mode: LOCAL_STUB
+  storage:
+    mode: LOCAL
+    local-path: ./target/test-data
