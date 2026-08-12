@@ -26,7 +26,9 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 JAR=$(ls target/backend-*.jar 2>/dev/null | head -1 || true)
 if [ "${1:-}" != "--no-build" ] || [ -z "$JAR" ]; then
-  ./mvnw -B -q -DskipTests package
+  # `clean` matters: an incremental repackage over a stale target/ fails with
+  # "Unable to find main class", which is a confusing way to lose ten minutes.
+  ./mvnw -B -q -DskipTests clean package
   JAR=$(ls target/backend-*.jar | head -1)
 fi
 

@@ -85,6 +85,10 @@ with the same key returns the original result instead of generating and charging
 | `POST` | `/api/v1/listening/exercises` | Generate an exercise. Accepts `Idempotency-Key`. Rate limited and daily capped. |
 | `GET`  | `/api/v1/listening/exercises/{exerciseId}` | Fetch an exercise you own, without answers |
 | `POST` | `/api/v1/listening/exercises/{exerciseId}/submissions` | Score an attempt and reveal the transcript |
+| `GET`  | `/api/v1/speaking/tasks` | The eight tasks with their preparation and answer times |
+| `POST` | `/api/v1/speaking/tasks/{taskNumber}/prompts` | Generate an original prompt |
+| `POST` | `/api/v1/speaking/evaluations?promptId=…` | `multipart/form-data`, part name `recording` |
+| `GET`  | `/api/v1/speaking/evaluations/{evaluationId}` | Fetch an evaluation you own |
 | `GET`  | `/actuator/health`    | Liveness/readiness for the load balancer (public)      |
 
 `GET /api/v1/config` returns non-sensitive values only. It is covered by a test asserting that no
@@ -114,12 +118,7 @@ endpoint, so no component hard-codes a duration.
 
 ### Planned
 
-| Method | Path                                                | Phase |
-| ------ | --------------------------------------------------- | ----- |
-| `GET`  | `/api/v1/speaking/tasks`                            | 3     |
-| `POST` | `/api/v1/speaking/tasks/{taskNumber}/prompts`       | 3     |
-| `POST` | `/api/v1/speaking/evaluations` (multipart)          | 3     |
-| `GET`  | `/api/v1/speaking/evaluations/{evaluationId}`       | 3     |
+_All planned endpoints are now implemented._
 
 The Listening read model has two distinct types. `ExercisePublicView`, returned before submission,
 has no `speakerTurns`, `correctOptionId`, `explanation`, or `evidence` **fields**. The full

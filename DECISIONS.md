@@ -152,3 +152,65 @@ order, and whether an upstream 429 becomes a stable `PROVIDER_RATE_LIMITED` body
 
 **Cost:** the exact request shape sent to OpenAI is not covered by a test. It is covered by the
 typed SDK and by the documentation checks recorded in `docs/prompts.md`.
+
+---
+
+## ADR-011 — Recording never starts by itself
+
+**Status:** accepted (phase 3)
+
+The real test starts recording automatically when preparation ends. This app does not, because
+auto-starting would mean requesting the microphone on a timer rather than on a user action — and the
+rule is that permission is requested only when the user presses record.
+
+So preparation runs as a real countdown, and when it ends the user presses **Start recording**. The
+answer timer then runs for the task's exact duration and stops the recorder automatically.
+
+**Cost:** slightly less faithful to test conditions. In exchange, the browser's permission prompt
+never appears unprompted, and a user who steps away does not return to a recording of an empty room.
+
+---
+
+## ADR-012 — Delivery metrics are computed locally and described honestly
+
+**Status:** accepted (phase 3)
+
+Duration, silence ratio, and longest pause come from FFmpeg; word count, pace, fillers, and repeated
+starts come from the transcript. The scoring model receives these as evidence and **never receives
+the audio**.
+
+The scoring prompt therefore forbids any comment on pronunciation, accent, intonation, or voice
+quality, and the results screen says in plain text that these are measurements of pace and pausing,
+not a pronunciation assessment. Claiming to diagnose pronunciation from a transcript would be the
+easiest way for this tool to give confidently wrong advice.
+
+Pace is computed over speaking time rather than wall-clock time, so a thoughtful pause does not make
+someone look slow.
+
+---
+
+## ADR-013 — Demo-mode speaking feedback is rule-based and labelled
+
+**Status:** accepted (phase 3)
+
+Without a provider there is nothing to transcribe with, so demo mode returns a fixed sample
+transcript and a deterministic rule-based assessment computed from the user's **real** measured
+delivery metrics. Confidence is always `LOW`, and the UI states that the transcript and feedback are
+fixed demo content while the recording, timing, and measurements are real.
+
+This keeps the entire flow — permission, timers, auto-stop, upload validation, FFmpeg measurement,
+results rendering — exercisable in CI and in a fresh clone, without pretending an AI assessed it.
+
+---
+
+## ADR-014 — The e2e recording hook is a build-mode flag, not a runtime switch
+
+**Status:** accepted (phase 3)
+
+Playwright cannot drive a microphone, so the Speaking e2e test needs a way to supply a fixture
+recording. The file input that does this renders only when `VITE_ENABLE_TEST_HOOKS === 'true'`, set
+in `.env.e2e` and loaded exclusively by `vite build --mode e2e`.
+
+A production build therefore does not contain the hook at all — it is dead-code eliminated — so
+there is no runtime flag an attacker could flip. Everything downstream of the hook (upload
+validation, measurement, scoring, rendering) is the real code path.

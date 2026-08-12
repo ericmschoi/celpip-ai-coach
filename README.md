@@ -20,7 +20,7 @@ dimensions.
 | -------------------------------- | -------------- |
 | 1 — Foundation                   | ✅ done        |
 | 2 — Listening vertical slice     | ✅ done        |
-| 3 — Speaking vertical slice      | ⬜ not started |
+| 3 — Speaking vertical slice      | ✅ done        |
 | 4 — Private AWS deployment       | ⬜ not started |
 | 5 — Handoff                      | ⬜ not started |
 
@@ -28,7 +28,10 @@ What works today: the full Listening flow, end to end. Pick a part and difficult
 exercise with multi-voice audio, answer six questions, submit, and see the score, per-question
 rationale with evidence, the full transcript, and one targeted tip. It runs with no API key at all
 in demo mode, and with real generation, TTS, and audio assembly when `OPENAI_API_KEY` is set.
-Speaking practice lands in phase 3.
+Speaking works too: pick one of the eight tasks, get an original prompt with its real preparation
+and answer times, record in the browser with auto-stop at the limit, and get an unofficial 1-12
+estimate with four dimension scores, evidence quoted from your own words, corrections, a stronger
+sample answer, and a next drill.
 
 ## Screenshots
 
