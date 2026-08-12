@@ -25,7 +25,17 @@ public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private static final String[] PUBLIC_PATHS = {
-        "/actuator/health", "/actuator/health/**", "/actuator/info", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"
+        "/actuator/health",
+        "/actuator/health/**",
+        "/actuator/info",
+        "/v3/api-docs/**",
+        "/swagger-ui/**",
+        "/swagger-ui.html",
+        // Local-mode media links. The signed, expiring token in the query
+        // string is the credential, because an <audio> element cannot send an
+        // Authorization header. The controller only exists in LOCAL storage
+        // mode; deployed environments serve audio from S3 presigned URLs.
+        "/media/**"
     };
 
     private final AppProperties properties;

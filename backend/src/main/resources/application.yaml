@@ -54,7 +54,9 @@ app:
     user-pool-id: ${APP_COGNITO_USER_POOL_ID:}
     client-id: ${APP_COGNITO_CLIENT_ID:}
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    # 5173 is the Vite dev server, 4173 is `vite preview` (used by e2e).
+    # Deployments override this with the single CloudFront origin.
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
   limits:
     listening-per-day: ${APP_LIMITS_LISTENING_PER_DAY:20}
     speaking-per-day: ${APP_LIMITS_SPEAKING_PER_DAY:30}
@@ -108,3 +110,9 @@ app:
   storage:
     mode: LOCAL
     local-path: ./target/test-data
+  # Effectively unlimited: the limiter has its own focused tests, and every
+  # other test would otherwise trip over a shared burst budget.
+  limits:
+    listening-per-day: 10000
+    speaking-per-day: 10000
+    burst-per-minute: 10000

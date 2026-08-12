@@ -8,6 +8,7 @@ const SEED_CONFIG = {
   contentMode: 'SEED',
   authMode: 'LOCAL_STUB',
   listeningParts: [1, 2, 3, 4, 5, 6],
+  seedListeningParts: [5],
   speakingTasks: [
     { taskNumber: 1, title: 'Giving advice', preparationSeconds: 30, answerSeconds: 90 },
   ],

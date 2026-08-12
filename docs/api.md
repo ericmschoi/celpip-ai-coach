@@ -82,6 +82,9 @@ with the same key returns the original result instead of generating and charging
 | Method | Path                  | Description                                            |
 | ------ | --------------------- | ------------------------------------------------------ |
 | `GET`  | `/api/v1/config`      | Client bootstrap: content mode, auth mode, parts, speaking tasks with timings, difficulties, daily limits |
+| `POST` | `/api/v1/listening/exercises` | Generate an exercise. Accepts `Idempotency-Key`. Rate limited and daily capped. |
+| `GET`  | `/api/v1/listening/exercises/{exerciseId}` | Fetch an exercise you own, without answers |
+| `POST` | `/api/v1/listening/exercises/{exerciseId}/submissions` | Score an attempt and reveal the transcript |
 | `GET`  | `/actuator/health`    | Liveness/readiness for the load balancer (public)      |
 
 `GET /api/v1/config` returns non-sensitive values only. It is covered by a test asserting that no
@@ -113,9 +116,6 @@ endpoint, so no component hard-codes a duration.
 
 | Method | Path                                                | Phase |
 | ------ | --------------------------------------------------- | ----- |
-| `POST` | `/api/v1/listening/exercises`                       | 2     |
-| `GET`  | `/api/v1/listening/exercises/{exerciseId}`          | 2     |
-| `POST` | `/api/v1/listening/exercises/{exerciseId}/submissions` | 2  |
 | `GET`  | `/api/v1/speaking/tasks`                            | 3     |
 | `POST` | `/api/v1/speaking/tasks/{taskNumber}/prompts`       | 3     |
 | `POST` | `/api/v1/speaking/evaluations` (multipart)          | 3     |
@@ -124,3 +124,78 @@ endpoint, so no component hard-codes a duration.
 The Listening read model has two distinct types. `ExercisePublicView`, returned before submission,
 has no `speakerTurns`, `correctOptionId`, `explanation`, or `evidence` **fields**. The full
 transcript, answer key, and rationale appear only in the submission response.
+
+## Listening request and response examples
+
+### `POST /api/v1/listening/exercises`
+
+```json
+{ "part": 5, "difficulty": "COMPETENT" }
+```
+
+`201 Created`, `Location: /api/v1/listening/exercises/{id}`:
+
+```json
+{
+  "id": "0b0a…",
+  "part": 5,
+  "partLabel": "Discussion",
+  "difficulty": "COMPETENT",
+  "title": "Registered Courses or Drop-In Classes",
+  "scenario": "Three members of a community centre's programming committee meet…",
+  "speakers": ["Priya", "Dale", "Marcus"],
+  "questionCount": 6,
+  "questions": [
+    {
+      "id": "q1",
+      "stem": "According to Dale, what has to happen before a registered course will run?",
+      "options": [
+        { "id": "A", "text": "…" },
+        { "id": "B", "text": "…" },
+        { "id": "C", "text": "…" },
+        { "id": "D", "text": "…" }
+      ]
+    }
+  ],
+  "audioUrl": "/media/listening?token=…",
+  "audioDurationSeconds": 180,
+  "audioDisclosure": "This exercise uses AI-generated voices.",
+  "createdAt": "2026-08-11T19:02:11Z"
+}
+```
+
+There is no `speakerTurns`, `correctOptionId`, `explanation`, or `evidence` **field on this type**,
+so there is nothing to omit at serialization time. Two backend tests and one e2e test assert their
+absence.
+
+`audioUrl` is short-lived: an S3 presigned GET in AWS, or a signed local `/media/listening` link in
+development. Both expire after `APP_PRESIGNED_URL_TTL` (default 15 minutes).
+
+### `POST /api/v1/listening/exercises/{exerciseId}/submissions`
+
+```json
+{
+  "answers": [
+    { "questionId": "q1", "selectedOptionId": "B" },
+    { "questionId": "q2", "selectedOptionId": "C" }
+  ]
+}
+```
+
+Every question must be answered exactly once with an option that exists on it; anything else is
+`VALIDATION_FAILED`. A second submission for the same exercise is `ALREADY_SUBMITTED`.
+
+`200 OK` returns `correctCount`, `totalQuestions`, `scorePercent`, a `results` array with
+`correctOptionId`, `correctOptionText`, `explanation`, `evidence` and `skill` per question, the full
+`transcript`, `weakestSkill`, and one `tip` chosen from the skill the user missed most.
+
+## Cost controls
+
+`POST /api/v1/listening/exercises` is limited twice per user: a burst limit
+(`APP_LIMITS_BURST_PER_MINUTE`, default 5/min) returning `RATE_LIMITED`, and a daily cap
+(`APP_LIMITS_LISTENING_PER_DAY`, default 20) returning `DAILY_LIMIT_REACHED`. A replayed
+`Idempotency-Key` returns the original exercise without consuming allowance.
+
+**Known limitation:** the burst limiter and the idempotency map are in-process. With the single
+Fargate task this app deploys that is exact; with more than one task each gets its own. The daily cap
+goes through a durable counter and stays correct either way.

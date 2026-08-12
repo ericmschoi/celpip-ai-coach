@@ -2,18 +2,24 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
+const BACKEND = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080';
+
+const backendProxy = {
+  '/api': { target: BACKEND, changeOrigin: true },
+  '/media': { target: BACKEND, changeOrigin: true },
+};
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Same-origin during local dev, so no CORS preflight and no absolute URLs
+  // baked into the bundle. `/media` carries locally stored audio.
   server: {
     port: 5173,
-    // Same-origin during local dev, so no CORS preflight and no absolute URLs
-    // baked into the bundle.
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080',
-        changeOrigin: true,
-      },
-    },
+    proxy: backendProxy,
+  },
+  preview: {
+    port: 4173,
+    proxy: backendProxy,
   },
   build: {
     sourcemap: true,

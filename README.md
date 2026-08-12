@@ -19,15 +19,16 @@ dimensions.
 | Phase                            | State          |
 | -------------------------------- | -------------- |
 | 1 — Foundation                   | ✅ done        |
-| 2 — Listening vertical slice     | ⬜ not started |
+| 2 — Listening vertical slice     | ✅ done        |
 | 3 — Speaking vertical slice      | ⬜ not started |
 | 4 — Private AWS deployment       | ⬜ not started |
 | 5 — Handoff                      | ⬜ not started |
 
-What works today: the monorepo builds end to end, the backend serves `GET /api/v1/config` and
-`/actuator/health` behind a configurable auth mode, RFC 9457 Problem Details are returned for every
-failure, the React app renders the shell with both practice routes, and `cdk synth` produces the
-data layer. Practice content itself lands in phase 2 and 3.
+What works today: the full Listening flow, end to end. Pick a part and difficulty, get an original
+exercise with multi-voice audio, answer six questions, submit, and see the score, per-question
+rationale with evidence, the full transcript, and one targeted tip. It runs with no API key at all
+in demo mode, and with real generation, TTS, and audio assembly when `OPENAI_API_KEY` is set.
+Speaking practice lands in phase 3.
 
 ## Screenshots
 
