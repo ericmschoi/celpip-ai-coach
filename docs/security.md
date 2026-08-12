@@ -192,6 +192,28 @@ token unencrypted. Nothing in this app does that. The hardening step, if this ev
 restrict the load balancer's security group to the AWS-managed CloudFront origin-facing prefix list,
 or to put an ACM certificate on the load balancer. Both are noted in `docs/aws-runbook.md`.
 
+## Known dependency advisory
+
+`npm audit` reports one high-severity finding in `infra/`, and it is accepted rather than fixed:
+
+| Field | Value |
+| --- | --- |
+| Package | `brace-expansion` 5.0.8 |
+| Advisory | GHSA-rgw5-rvv9-x895 — denial of service via unbounded intermediate arrays |
+| Path | `aws-cdk-lib` → bundled `minimatch` → `brace-expansion` |
+
+**Why it is not fixed here.** `aws-cdk-lib` ships `minimatch` as a *bundled* dependency, and npm
+`overrides` cannot rewrite a bundled package's own dependencies — adding one changes nothing, which
+was verified rather than assumed. The fix has to come from an `aws-cdk-lib` release that bundles a
+patched `minimatch`; 2.264.0 is the newest available.
+
+**Why the exposure is nil in practice.** This is a build-time dependency of the infrastructure
+project only. It is not in the backend, not in the frontend bundle, and not in the container image.
+The only glob patterns it ever expands are the ones written in this repository's own CDK code, and
+it never sees user input or network data. Re-check after each `aws-cdk-lib` upgrade.
+
+The frontend has no outstanding advisories at any severity.
+
 ## Reporting
 
 This is a personal project with a single user. Rotate the OpenAI key
