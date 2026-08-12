@@ -2,6 +2,7 @@ package com.listenspeak.coach.config;
 
 import com.listenspeak.coach.listening.Difficulty;
 import com.listenspeak.coach.platform.config.AppProperties;
+import com.listenspeak.coach.listening.seed.SeedExerciseLibrary;
 import com.listenspeak.coach.speaking.SpeakingTaskCatalog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ConfigController {
 
     private final AppProperties properties;
+    private final SeedExerciseLibrary seedLibrary;
 
-    public ConfigController(AppProperties properties) {
+    public ConfigController(AppProperties properties, SeedExerciseLibrary seedLibrary) {
         this.properties = properties;
+        this.seedLibrary = seedLibrary;
     }
 
     public record SpeakingTaskView(
@@ -36,6 +39,8 @@ public class ConfigController {
             AppProperties.ContentMode contentMode,
             AppProperties.AuthMode authMode,
             List<Integer> listeningParts,
+            /** Parts that have an offline sample. Only these work in SEED mode. */
+            List<Integer> seedListeningParts,
             List<SpeakingTaskView> speakingTasks,
             List<Difficulty> difficulties,
             DailyLimitsView dailyLimits) {}
@@ -52,10 +57,17 @@ public class ConfigController {
                         (int) task.answer().toSeconds()))
                 .toList();
 
+        List<Integer> seedParts = seedLibrary.all().stream()
+                .map(document -> document.part())
+                .distinct()
+                .sorted()
+                .toList();
+
         return new AppConfigView(
                 properties.contentMode(),
                 properties.auth().mode(),
                 List.of(1, 2, 3, 4, 5, 6),
+                seedParts,
                 tasks,
                 Arrays.asList(Difficulty.values()),
                 new DailyLimitsView(

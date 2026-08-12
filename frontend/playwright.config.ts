@@ -24,12 +24,24 @@ export default defineConfig({
     { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
   ],
+  // Two servers: the backend in SEED mode, and the production bundle served by
+  // `vite preview`, which proxies /api and /media to the backend.
   webServer: process.env.E2E_BASE_URL
     ? undefined
-    : {
-        command: `npm run preview -- --port ${PORT} --strictPort`,
-        url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 60_000,
-      },
+    : [
+        {
+          command: '../scripts/run-backend.sh',
+          url: 'http://localhost:8080/actuator/health',
+          reuseExistingServer: true,
+          timeout: 240_000,
+          stdout: 'ignore',
+          stderr: 'pipe',
+        },
+        {
+          command: `npm run preview -- --port ${PORT} --strictPort`,
+          url: BASE_URL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+        },
+      ],
 });

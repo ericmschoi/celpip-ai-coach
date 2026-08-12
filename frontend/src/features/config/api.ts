@@ -7,6 +7,8 @@ export const appConfigSchema = z.object({
   contentMode: z.enum(['SEED', 'LIVE']),
   authMode: z.enum(['LOCAL_STUB', 'COGNITO']),
   listeningParts: z.array(z.number().int().min(1).max(6)),
+  /** Parts with an offline sample. In SEED mode only these can be generated. */
+  seedListeningParts: z.array(z.number().int().min(1).max(6)),
   speakingTasks: z.array(
     z.object({
       taskNumber: z.number().int().min(1).max(8),

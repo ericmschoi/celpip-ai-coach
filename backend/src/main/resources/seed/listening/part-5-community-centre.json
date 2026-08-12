@@ -1,0 +1,194 @@
+{
+  "seedId": "part-5-community-centre",
+  "title": "Registered Courses or Drop-In Classes",
+  "scenario": "Three members of a community centre's programming committee meet to decide how next season's classes should be offered.",
+  "part": 5,
+  "difficulty": "COMPETENT",
+  "audioResource": "seed/audio/part-5-community-centre.mp3",
+  "audioDurationSeconds": 180,
+  "speakerTurns": [
+    {
+      "speakerId": "PRIYA",
+      "speakerDisplayName": "Priya",
+      "text": "Thanks for staying late, both of you. The board wants our recommendation on next season's format within two weeks, so we cannot let this drift again.",
+      "pauseAfterMs": 350
+    },
+    {
+      "speakerId": "DALE",
+      "speakerDisplayName": "Dale",
+      "text": "Then let me start with the numbers, because I think they make the case on their own. Last term we advertised eleven registered courses and we cancelled three of them. A registered course only runs if at least eight people sign up, and those three never reached eight.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "MARCUS",
+      "speakerDisplayName": "Marcus",
+      "text": "I know where this is going, and I want to say something before we get there. I teach four of those courses. If we move to drop-in classes, I have no idea who is walking through the door on any given evening. Planning a lesson for people I have never met, at four different skill levels, is not the same job.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "PRIYA",
+      "speakerDisplayName": "Priya",
+      "text": "That is a fair objection, and I do not want to brush past it. But Dale, keep going. What did the cancellations actually cost us?",
+      "pauseAfterMs": 350
+    },
+    {
+      "speakerId": "DALE",
+      "speakerDisplayName": "Dale",
+      "text": "More than people assume. We print the brochure, we hold the room, we pay a deposit to the instructor, and then we refund everyone and the room sits empty for eight weeks. The cancellations are what is really costing us, not the drop-in fee being lower.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "MARCUS",
+      "speakerDisplayName": "Marcus",
+      "text": "Lower is putting it kindly. A registered course is ninety dollars for eight weeks. Drop-in is twelve dollars a session. If the same person comes every week, we earn less from them, and I am the one absorbing the difference in preparation time.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "PRIYA",
+      "speakerDisplayName": "Priya",
+      "text": "So what if we stopped treating this as one choice? We keep our four strongest registered courses, the ones that always fill, and we add drop-in sessions on Saturday and Sunday.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "DALE",
+      "speakerDisplayName": "Dale",
+      "text": "A hybrid. That would at least stop us gambling the whole season on whether eight people sign up in August.",
+      "pauseAfterMs": 350
+    },
+    {
+      "speakerId": "MARCUS",
+      "speakerDisplayName": "Marcus",
+      "text": "It would also double my planning load, if I am honest. Two formats, two sets of materials, and the drop-in group changes every week.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "PRIYA",
+      "speakerDisplayName": "Priya",
+      "text": "The weekend part matters more than it sounds. The people who told us they could not commit to an eight-week course were almost all shift workers. They cannot promise a Tuesday evening in advance, but a Saturday morning they can decide on Friday night.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "DALE",
+      "speakerDisplayName": "Dale",
+      "text": "And a drop-in session cannot be cancelled for low enrolment, because there is nothing to cancel. Whoever shows up, shows up. My worry is the other side of it. Marcus, how do we pay you if we do not know the headcount?",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "MARCUS",
+      "speakerDisplayName": "Marcus",
+      "text": "That is the part I actually care about, and nobody has answered it. Look, I am not against the idea. I could make it work if the drop-in sessions were limited to two subjects, and if the rate were flat rather than per head.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "PRIYA",
+      "speakerDisplayName": "Priya",
+      "text": "Two subjects is manageable. Beginner conversation and beginner computing were the two that never had trouble filling anyway.",
+      "pauseAfterMs": 350
+    },
+    {
+      "speakerId": "DALE",
+      "speakerDisplayName": "Dale",
+      "text": "A flat rate I can defend to the board. It is predictable, and predictable is easier to approve than cheap.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "MARCUS",
+      "speakerDisplayName": "Marcus",
+      "text": "Then I will support it, with those two conditions written down before it goes to the board. I still think we will lose some of the depth that eight weeks with the same group gives you. I would rather say that now than complain about it in November.",
+      "pauseAfterMs": 400
+    },
+    {
+      "speakerId": "PRIYA",
+      "speakerDisplayName": "Priya",
+      "text": "Noted, and I will put it in the recommendation as a stated trade-off. Dale, draft the budget. Marcus, list your two subjects. We present in two weeks.",
+      "pauseAfterMs": 250
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "stem": "According to Dale, what has to happen before a registered course will run?",
+      "options": [
+        { "id": "A", "text": "The board has to approve the instructor's rate." },
+        { "id": "B", "text": "At least eight people have to sign up." },
+        { "id": "C", "text": "The course has to run for at least eight weeks." },
+        { "id": "D", "text": "Three courses have to be advertised together." }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Dale states the minimum-registration condition directly, and says the three cancelled courses never reached it. The eight-week figure is the length of a course, and the ninety-dollar fee, not the condition for running one.",
+      "evidence": "A registered course only runs if at least eight people sign up, and those three never reached eight.",
+      "skill": "DETAIL"
+    },
+    {
+      "id": "q2",
+      "stem": "How long does the committee have to make its recommendation?",
+      "options": [
+        { "id": "A", "text": "Eight weeks." },
+        { "id": "B", "text": "Until the end of the season." },
+        { "id": "C", "text": "Two weeks." },
+        { "id": "D", "text": "Until August." }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Priya sets a two-week deadline at the start and repeats it at the end. Eight weeks is the length of a registered course and August is when people sign up, so both are numbers from the discussion attached to something else.",
+      "evidence": "The board wants our recommendation on next season's format within two weeks.",
+      "skill": "DETAIL"
+    },
+    {
+      "id": "q3",
+      "stem": "Who objects that drop-in classes make lessons harder to plan?",
+      "options": [
+        { "id": "A", "text": "Priya, the person running the meeting." },
+        { "id": "B", "text": "Dale, who presents the budget figures." },
+        { "id": "C", "text": "Marcus, who teaches four of the courses." },
+        { "id": "D", "text": "All three of them agree on this point." }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Marcus raises the planning problem twice, saying he would not know who is walking through the door and that it would double his planning load. Dale argues from cost and Priya proposes the compromise.",
+      "evidence": "Planning a lesson for people I have never met, at four different skill levels, is not the same job.",
+      "skill": "SPEAKER_IDENTIFICATION"
+    },
+    {
+      "id": "q4",
+      "stem": "What does Dale mean when he says the cancellations are what is really costing them?",
+      "options": [
+        { "id": "A", "text": "The centre spends money preparing courses that never run." },
+        { "id": "B", "text": "Cancelled courses damage the centre's reputation with instructors." },
+        { "id": "C", "text": "Drop-in fees are too low to cover the centre's expenses." },
+        { "id": "D", "text": "Refunds take longer to process than registrations do." }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Dale lists the spending that happens before a cancellation - brochure, room, instructor deposit - and points out the room then sits empty. He explicitly contrasts this with the lower drop-in fee, which rules out that option.",
+      "evidence": "We print the brochure, we hold the room, we pay a deposit to the instructor, and then we refund everyone and the room sits empty.",
+      "skill": "PARAPHRASE"
+    },
+    {
+      "id": "q5",
+      "stem": "Why does Priya specifically want the drop-in sessions on the weekend?",
+      "options": [
+        { "id": "A", "text": "Weekend rooms are cheaper for the centre to hold." },
+        { "id": "B", "text": "People who cannot commit to a fixed weekday evening can still attend." },
+        { "id": "C", "text": "Marcus is only available to teach on Saturday and Sunday." },
+        { "id": "D", "text": "The board asked for weekend programming in its request." }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Priya explains that the people who could not commit to an eight-week course were mostly shift workers who cannot promise a Tuesday evening but can decide on a Saturday at short notice. Nothing is said about room cost, Marcus's availability, or a board request.",
+      "evidence": "They cannot promise a Tuesday evening in advance, but a Saturday morning they can decide on Friday night.",
+      "skill": "INFERENCE"
+    },
+    {
+      "id": "q6",
+      "stem": "What is Marcus's position at the end of the discussion?",
+      "options": [
+        { "id": "A", "text": "He now prefers drop-in classes to registered courses." },
+        { "id": "B", "text": "He refuses to support the plan until the board approves his pay." },
+        { "id": "C", "text": "He supports the plan on two conditions, while still naming a drawback." },
+        { "id": "D", "text": "He asks to delay the decision until the next meeting." }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Marcus agrees to support the hybrid provided the drop-in is limited to two subjects and the rate is flat, and he says he would rather state now that the centre will lose some depth than complain later. He does not prefer drop-in, refuse, or ask for a delay.",
+      "evidence": "Then I will support it, with those two conditions written down before it goes to the board.",
+      "skill": "FINAL_POSITION"
+    }
+  ],
+  "listeningTip": "In a three-way discussion, keep a separate mental note for each speaker's position and update it when someone concedes. The last thing a speaker says about their own view is usually what the question is testing."
+}

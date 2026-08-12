@@ -102,3 +102,53 @@ Prettier for formatting. TypeScript is pinned to the 6.0.x line.
 A personal app deploys as a unit. Splitting into several stacks would add cross-stack exports that
 lock resources and complicate `cdk destroy`, with no independent deployment cadence to justify it.
 Separation of concerns lives in `infra/lib/constructs/`.
+
+---
+
+## ADR-008 — The seed fixture's audio is rendered offline, not by the paid TTS
+
+**Status:** accepted (phase 2)
+
+The Part 5 demo exercise needs audio that works with no API key, in CI, and in a fresh clone. The
+committed MP3 is rendered by `scripts/generate-seed-audio.sh` from the fixture's own JSON using
+offline macOS `say` voices (Samantha, Daniel, Karen — different accents as well as pitches), then run
+through exactly the same loudness normalisation, limiting, and quality gate as generated audio.
+
+**Cost:** the fixture voices sound more synthetic than `marin`/`cedar`. That is acceptable, and
+documented in the UI as demo mode: the fixture exists so the flow works for free, not to demonstrate
+audio quality. The script must be re-run when the transcript changes, and `audioDurationSeconds`
+updated in the JSON.
+
+---
+
+## ADR-009 — Local audio is served through a signed, expiring link, not an authenticated endpoint
+
+**Status:** accepted (phase 2)
+
+An `<audio>` element cannot send an `Authorization` header, so audio cannot go through the normal
+bearer-token API. In AWS the answer is an S3 presigned GET. Locally, `LocalAudioStorage` issues an
+equivalent: `/media/listening?token=…` where the token is `base64(key):expiry:HMAC-SHA256`, signed
+with a per-process random key.
+
+Per-process means every restart invalidates old links, which is correct for a development mechanism.
+The route is permitted without authentication because the signature *is* the credential, and the
+controller exists only when `app.storage.mode=LOCAL`, so a deployed environment has no such route at
+all. Expired and forged tokens are both reported as `404`, so nothing is learned from probing.
+
+---
+
+## ADR-010 — Provider adapters are tested at the port, not over HTTP
+
+**Status:** accepted (phase 2)
+
+The prompt suggests WireMock or MockWebServer. Instead, the seams that can actually break are tested
+directly: `ExerciseValidator` against 13 malformed exercises, `AudioAssembler` and `AudioQualityGate`
+against **real FFmpeg** output, `DialogueRenderer` against a fake `TextToSpeech`, and provider
+failure mapping through the real controller with a mocked generator.
+
+Reasoning: an HTTP-level mock would assert that this app sends the JSON it was written to send, which
+is not a property worth a test. Whether generated audio clips, whether turns survive concurrency in
+order, and whether an upstream 429 becomes a stable `PROVIDER_RATE_LIMITED` body — those are.
+
+**Cost:** the exact request shape sent to OpenAI is not covered by a test. It is covered by the
+typed SDK and by the documentation checks recorded in `docs/prompts.md`.
