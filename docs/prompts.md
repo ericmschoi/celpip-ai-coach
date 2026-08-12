@@ -166,9 +166,83 @@ The `input` is exactly the turn's `text` — never a label, never a name. See
 
 ---
 
-## Speaking evaluation
+## Speaking prompt generation — `speaking-prompt-v1`
 
-Added in phase 3.
+**Model:** `OPENAI_GENERATION_MODEL` · **Max output tokens:** 800
+**Source:** [`SpeakingPrompts.java`](../backend/src/main/java/com/listenspeak/coach/speaking/prompts/SpeakingPrompts.java)
+
+The system prompt requires original content, concrete everyday Canadian settings, and a scenario
+answerable by anyone without special knowledge or a particular job or family situation. It
+explicitly forbids stating a time limit: **timings never come from the model.** They come from
+`SpeakingTaskCatalog` and are attached to the prompt server-side, so a model cannot shorten or
+lengthen the exercise.
+
+Schema: `{ situation, instruction, bullets[] }`, all required, `additionalProperties: false`.
+
+In demo mode the eight prompts in
+[`seed/speaking/prompts.json`](../backend/src/main/resources/seed/speaking/prompts.json) are served
+instead, so the whole flow works with no key.
+
+## Speaking evaluation — `speaking-scoring-v1`
+
+**Model:** `OPENAI_SCORING_MODEL` (default `gpt-5.6-terra`) · **Max output tokens:** 4000
+**Source:** [`ScoringPrompts.java`](../backend/src/main/java/com/listenspeak/coach/speaking/evaluation/ScoringPrompts.java)
+
+The model receives the task, the prompt, the transcript, the time limit, and the locally computed
+delivery metrics. **It never receives the audio.** The system prompt therefore states:
+
+- Ground every judgement in the supplied transcript or metrics, quoting the speaker's own words.
+- **You cannot hear pronunciation, accent, intonation, or voice quality. Never comment on them, and
+  never claim a word was mispronounced.** Listenability is judged from pace, pausing, hesitation,
+  and repetition — things the metrics actually show — and from whether the wording is easy to follow.
+- Where the transcript is ambiguous, say so rather than guessing.
+- Judge language, not opinions: a well-argued view the model disagrees with scores well.
+- Score conservatively; prefer lower confidence to a confident middling score.
+- Corrections must preserve the speaker's meaning.
+- The sample answer must be one clear step up from what they produced, not a model essay.
+
+An unofficial 1–12 band guide is included, with each band described by what a listener experiences.
+
+### Delivery metrics supplied as evidence
+
+Computed locally by FFmpeg and `DeliveryMetrics`, never by the model:
+
+```
+duration: 78.4s of 90s allowed (87% of the time used)
+words: 168
+pace: 142 words per minute while speaking
+fillers: 5
+repeated word starts: 2
+silence: 12% of the recording, longest pause 2.1s
+```
+
+Pace is computed over *speaking* time, not wall-clock time, so a long pause does not make someone
+look slow.
+
+### Schema
+
+`estimatedLevel` (1–12), `confidence` (LOW/MEDIUM/HIGH), `dimensions[]` (each with an enum
+dimension, a 1–12 score, and evidence), `strengths[]`, `improvements[]` (issue / whyItMatters /
+howToFix), `corrections[]` (original / improved / reason), `sampleAnswer`, `nextDrill`. Every
+property required, `additionalProperties: false` throughout.
+
+### Server-side validation
+
+[`ScoreGuard`](../backend/src/main/java/com/listenspeak/coach/speaking/evaluation/ScoreGuard.java)
+runs on every assessment, whatever produced it:
+
+| Rule                                                      | Why                                                     |
+| --------------------------------------------------------- | ------------------------------------------------------- |
+| Overall level clamped to 1–12                              | A schema minimum is not a guarantee                      |
+| Each dimension score clamped to 1–12                       | Same                                                     |
+| All four dimensions present exactly once                   | A missing dimension would silently disappear from the UI |
+| Duplicate dimension: first score wins                      | Contradictory second opinions are dropped                |
+| Overall level within 2 of the dimension mean               | The headline number must be explainable by its own parts |
+| Blank evidence replaced, never shown empty                 | An empty evidence field looks like a bug                 |
+| Missing sample answer or next drill rejected               | Those are the actionable half of the feedback            |
+
+In demo mode, `SeedSpeakingScorer` produces a deterministic rule-based assessment from the real
+measured metrics, and always reports `LOW` confidence, because no language model looked at it.
 
 ---
 

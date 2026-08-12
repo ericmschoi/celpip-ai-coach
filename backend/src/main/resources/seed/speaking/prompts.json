@@ -1,0 +1,56 @@
+{
+  "prompts": [
+    {
+      "taskNumber": 1,
+      "situation": "A friend has been offered a promotion that pays more but means moving to another city, away from their family and their long-time hockey team.",
+      "instruction": "Give your friend advice about whether to accept the promotion. Explain your reasons.",
+      "bullets": [
+        "What matters most in this decision",
+        "What they might regret either way",
+        "What you would do and why"
+      ]
+    },
+    {
+      "taskNumber": 2,
+      "situation": "Think about a time when you had to learn something quickly, with very little help.",
+      "instruction": "Describe that experience. Say what you had to learn, how you managed it, and how it turned out.",
+      "bullets": ["When and where it happened", "What made it difficult", "What you would do differently now"]
+    },
+    {
+      "taskNumber": 3,
+      "situation": "You are describing a photograph to someone who cannot see it. The photograph shows a busy neighbourhood library on a rainy Saturday afternoon.",
+      "instruction": "Describe what is happening in the scene so the listener can picture it clearly.",
+      "bullets": ["Who is there and what they are doing", "Where things are in relation to each other", "The overall mood of the scene"]
+    },
+    {
+      "taskNumber": 4,
+      "situation": "In the same library scene, a staff member is standing on a chair reaching for a box on the top shelf, and a child is running along the aisle underneath.",
+      "instruction": "Predict what will happen next in the scene, and explain what leads you to think so.",
+      "bullets": ["What you expect to happen first", "How the people nearby will react", "How it is likely to end"]
+    },
+    {
+      "taskNumber": 5,
+      "situation": "You want to buy a used car for your family. There is a small hatchback with low mileage and excellent fuel economy, and an older van with more space but higher running costs. Your partner will make the final decision.",
+      "instruction": "Choose one of the two options and persuade your partner that it is the better choice.",
+      "bullets": ["Why your choice suits your family", "What the other option costs you", "What you are willing to compromise on"]
+    },
+    {
+      "taskNumber": 6,
+      "situation": "Your neighbour lent you a ladder two months ago. It was damaged in a storm while it was at your house. Your neighbour is friendly but particular about their tools, and they have just asked for it back.",
+      "instruction": "Choose ONE of the following, and speak directly to that person: explain the situation to your neighbour, OR ask a family member to help you deal with it.",
+      "bullets": ["Say clearly who you are speaking to", "Explain what happened", "Say what you propose to do about it"]
+    },
+    {
+      "taskNumber": 7,
+      "situation": "Your city is considering closing one downtown street permanently to cars, turning it into a space for walking, patios, and events. Local shop owners are divided.",
+      "instruction": "State your opinion on the proposal and support it with reasons.",
+      "bullets": ["Your position, stated clearly", "Two reasons that support it", "One objection and your response to it"]
+    },
+    {
+      "taskNumber": 8,
+      "situation": "You have found an unfamiliar object at a garage sale: a wooden box about the size of a shoebox, with a hinged lid, a small crank on one side, and three brass dials on the front. Nobody at the sale knows what it is.",
+      "instruction": "Describe the object to a friend on the phone, precisely enough that they can picture it, and say what you think it might be for.",
+      "bullets": ["Size, shape, and material", "The parts you can see and how they might work", "What you think it does and why"]
+    }
+  ]
+}

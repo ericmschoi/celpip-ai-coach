@@ -77,7 +77,7 @@ build-frontend: ## Build the static frontend bundle
 	cd frontend && npm run build
 
 e2e: ## Playwright end-to-end tests (SEED mode, no provider calls)
-	cd frontend && npm run build && npm run e2e
+	cd frontend && npm run build:e2e && npm run e2e
 
 docker-build: ## Build the backend container image
 	docker build -t listenspeak-backend:local ./backend
