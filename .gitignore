@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# builds
+dist/
+build/
+target/
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+.aws-credentials
+
+# test / tooling output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+*.log
+npm-debug.log*
+
+# cdk
+infra/cdk.out/
+infra/cdk.context.json
+*.d.ts.map
+
+# local runtime data
+.local-data/
+tmp/
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.iml
