@@ -95,6 +95,14 @@ export const evaluationFixture: SpeakingEvaluation = {
   nextDrill: 'Record the same task again and aim to use at least 90 percent of the time.',
   transcript:
     'So, um, I think she should probably take the promotion, because it is a lot more money…',
+  transcriptionQuality: {
+    wordTimestampsAvailable: true,
+    wordCount: 168,
+    averageWordConfidence: 0.94,
+    latencyMillis: 2140,
+    responseFormat: 'verbose_json',
+    verbatimRequested: true,
+  },
   metrics: {
     durationSeconds: 78.4,
     allowedSeconds: 90,
@@ -151,5 +159,13 @@ export const untranscribedEvaluationFixture: SpeakingEvaluation = {
     },
   ],
   sampleAnswer: 'A strong answer to a task like this states a position in the first sentence.',
+  transcriptionQuality: {
+    wordTimestampsAvailable: false,
+    wordCount: 0,
+    averageWordConfidence: null,
+    latencyMillis: 0,
+    responseFormat: 'none',
+    verbatimRequested: false,
+  },
   metrics: { ...evaluationFixture.metrics, wordCount: 0, wordsPerMinute: 0, fillerCount: 0 },
 };

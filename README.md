@@ -14,6 +14,11 @@ dimensions.
 
 ---
 
+> **Provider status:** the OpenAI transcription and scoring steps have **never been called**. They
+> are implemented and covered by mocked tests, which proves the wiring and nothing about accuracy.
+> See [docs/live-verification.md](docs/live-verification.md) for the one controlled run that closes
+> that gap. Listening generation and TTS are in the same position.
+
 ## Status
 
 | Phase                            | State          |

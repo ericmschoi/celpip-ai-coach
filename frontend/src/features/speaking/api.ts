@@ -64,6 +64,15 @@ export const evaluationSchema = z.object({
   sampleAnswer: z.string(),
   nextDrill: z.string(),
   transcript: z.string(),
+  // Diagnostics for the transcription step; used by the live verification run.
+  transcriptionQuality: z.object({
+    wordTimestampsAvailable: z.boolean(),
+    wordCount: z.number().int(),
+    averageWordConfidence: z.number().nullable().optional(),
+    latencyMillis: z.number().int(),
+    responseFormat: z.string(),
+    verbatimRequested: z.boolean(),
+  }),
   metrics: z.object({
     durationSeconds: z.number(),
     allowedSeconds: z.number().int(),

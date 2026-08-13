@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component;
 public class SeedTranscriber implements Transcriber {
 
     @Override
-    public String transcribe(Path recording, String filename) {
-        return "";
+    public TranscriptionResult transcribe(Path recording, String filename) {
+        return TranscriptionResult.unavailable();
     }
 
     @Override

@@ -78,6 +78,15 @@ public final class SpeakingViews {
     }
 
     /** {@code score} is null when the dimension could not be assessed. */
+    /** Diagnostics for the transcription step; shown only in the live report. */
+    public record TranscriptionQualityView(
+            boolean wordTimestampsAvailable,
+            int wordCount,
+            Double averageWordConfidence,
+            long latencyMillis,
+            String responseFormat,
+            boolean verbatimRequested) {}
+
     public record DimensionView(
             String dimension, String label, Integer score, boolean assessed, String evidence) {}
 
@@ -106,6 +115,7 @@ public final class SpeakingViews {
             String sampleAnswer,
             String nextDrill,
             String transcript,
+            TranscriptionQualityView transcriptionQuality,
             MetricsView metrics,
             Instant createdAt) {
 
@@ -138,6 +148,13 @@ public final class SpeakingViews {
                     evaluation.sampleAnswer(),
                     evaluation.nextDrill(),
                     evaluation.transcript(),
+                    new TranscriptionQualityView(
+                            evaluation.transcriptionQuality().wordTimestampsAvailable(),
+                            evaluation.transcriptionQuality().wordCount(),
+                            evaluation.transcriptionQuality().averageWordConfidence(),
+                            evaluation.transcriptionQuality().latencyMillis(),
+                            evaluation.transcriptionQuality().responseFormat(),
+                            evaluation.transcriptionQuality().verbatimRequested()),
                     MetricsView.of(evaluation.metrics()),
                     evaluation.createdAt());
         }

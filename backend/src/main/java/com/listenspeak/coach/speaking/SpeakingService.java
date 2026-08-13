@@ -16,6 +16,7 @@ import com.listenspeak.coach.speaking.domain.SpeakingPrompt;
 import com.listenspeak.coach.speaking.evaluation.RecordingAnalyzer;
 import com.listenspeak.coach.speaking.evaluation.ScoreGuard;
 import com.listenspeak.coach.speaking.evaluation.SpeechPresence;
+import com.listenspeak.coach.speaking.evaluation.TranscriptionResult;
 import com.listenspeak.coach.speaking.evaluation.SpeakingScorer;
 import com.listenspeak.coach.speaking.evaluation.Transcriber;
 import com.listenspeak.coach.speaking.prompts.PromptGenerator;
@@ -119,7 +120,8 @@ public class SpeakingService {
 
             usageLimiter.consume(ownerId, LimitedAction.SPEAKING_EVALUATION);
 
-            String transcript = transcriber.transcribe(upload.path(), upload.filename()).trim();
+            TranscriptionResult transcription = transcriber.transcribe(upload.path(), upload.filename());
+            String transcript = transcription.text().trim();
 
             // A transcriber that can hear but returned nothing means the audio
             // held no recognisable speech. A transcriber that cannot hear at all
@@ -148,6 +150,7 @@ public class SpeakingService {
                     prompt.taskNumber(),
                     transcript,
                     transcriptAvailable,
+                    qualityOf(transcription),
                     metrics,
                     assessment.estimatedLevel(),
                     assessment.confidence(),
@@ -182,6 +185,18 @@ public class SpeakingService {
                 .findEvaluationByOwnerAndId(ownerId, evaluationId)
                 .map(EvaluationView::of)
                 .orElseThrow(() -> ApiException.notFound("Evaluation"));
+    }
+
+    private static SpeakingEvaluation.TranscriptionQuality qualityOf(TranscriptionResult transcription) {
+        return new SpeakingEvaluation.TranscriptionQuality(
+                transcription.hasWordTimestamps(),
+                transcription.words().size(),
+                transcription.averageWordConfidence().isPresent()
+                        ? transcription.averageWordConfidence().getAsDouble()
+                        : null,
+                transcription.latencyMillis(),
+                transcription.responseFormat(),
+                transcription.verbatimRequested());
     }
 
     private RecordingAnalyzer.Measurements measure(UploadedRecording upload) {

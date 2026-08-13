@@ -29,6 +29,7 @@ public record SpeakingEvaluation(
         int taskNumber,
         String transcript,
         boolean transcriptAvailable,
+        TranscriptionQuality transcriptionQuality,
         DeliveryMetrics metrics,
         Integer estimatedLevel,
         Confidence confidence,
@@ -43,6 +44,25 @@ public record SpeakingEvaluation(
 
     public static final int MIN_LEVEL = 1;
     public static final int MAX_LEVEL = 12;
+
+    /**
+     * How the transcript was obtained. Recorded so a live accuracy check can
+     * state what the provider actually supported, rather than assuming.
+     *
+     * @param averageWordConfidence null when the model reported no logprobs
+     */
+    public record TranscriptionQuality(
+            boolean wordTimestampsAvailable,
+            int wordCount,
+            Double averageWordConfidence,
+            long latencyMillis,
+            String responseFormat,
+            boolean verbatimRequested) {
+
+        public static TranscriptionQuality unavailable() {
+            return new TranscriptionQuality(false, 0, null, 0, "none", false);
+        }
+    }
 
     public enum Confidence {
         LOW,
