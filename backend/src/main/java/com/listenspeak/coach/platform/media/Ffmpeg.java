@@ -30,11 +30,33 @@ public class Ffmpeg {
     private final String ffmpegBinary;
     private final String ffprobeBinary;
 
+    /**
+     * Root for working directories. Defaults to the system temp directory;
+     * tests point it somewhere isolated so that counting leftover directories
+     * cannot be perturbed by another process on the same machine.
+     */
+    private final Path tempRoot;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public Ffmpeg(
             @Value("${app.media.ffmpeg-path:ffmpeg}") String ffmpegBinary,
-            @Value("${app.media.ffprobe-path:ffprobe}") String ffprobeBinary) {
+            @Value("${app.media.ffprobe-path:ffprobe}") String ffprobeBinary,
+            @Value("${app.media.temp-dir:}") String tempDir) {
         this.ffmpegBinary = ffmpegBinary;
         this.ffprobeBinary = ffprobeBinary;
+        this.tempRoot = (tempDir == null || tempDir.isBlank())
+                ? Path.of(System.getProperty("java.io.tmpdir"))
+                : Path.of(tempDir);
+    }
+
+    /** Convenience for tests; the system temp directory is used. */
+    public Ffmpeg(String ffmpegBinary, String ffprobeBinary) {
+        this(ffmpegBinary, ffprobeBinary, null);
+    }
+
+    /** Where working directories are created. */
+    public Path tempRoot() {
+        return tempRoot;
     }
 
     public record Result(int exitCode, String output) {
@@ -113,7 +135,8 @@ public class Ffmpeg {
     /** Creates an isolated working directory whose name the caller never derives from user input. */
     public Path createWorkDirectory(String purpose) {
         try {
-            return Files.createTempDirectory("listenspeak-" + purpose + "-");
+            Files.createDirectories(tempRoot);
+            return Files.createTempDirectory(tempRoot, "listenspeak-" + purpose + "-");
         } catch (IOException e) {
             throw new UncheckedIOException("Could not create a working directory", e);
         }

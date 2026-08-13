@@ -25,8 +25,10 @@ help: ## Show available commands
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install frontend and infra dependencies
-	cd frontend && npm ci || (cd frontend && npm install)
-	cd infra && npm ci || (cd infra && npm install)
+	# `npm ci` needs package.json and the lockfile to agree; the fallback runs
+	# from the repository root, which is why it does not repeat the `cd`.
+	cd frontend && (npm ci || npm install)
+	cd infra && (npm ci || npm install)
 
 deps-up: ## Start local dependencies (LocalStack)
 	docker compose up -d
@@ -60,7 +62,7 @@ test-infra: ## CDK assertion tests
 	cd infra && npm run test
 
 lint: lint-frontend ## Lint everything
-	cd infra && npx tsc --noEmit
+	cd infra && npx tsc --noEmit && npx prettier --check .
 
 lint-frontend: ## Lint and format-check the frontend
 	cd frontend && npm run lint

@@ -27,10 +27,18 @@ WORKDIR /app
 
 COPY --from=build --chown=app:app /build/app.jar /app/app.jar
 
+# The process runs as a non-root user, so anything it writes needs a directory
+# it owns. /app itself stays root-owned and read-only to the app.
+#   /app/data  local-storage mode (running the image without AWS)
+#   /app/tmp   FFmpeg working directories
+RUN mkdir -p /app/data /app/tmp && chown -R app:app /app/data /app/tmp
+
 USER app
 EXPOSE 8080
 
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError" \
+    APP_STORAGE_LOCAL_PATH=/app/data \
+    APP_MEDIA_TEMP_DIR=/app/tmp
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD ["/bin/sh", "-c", "curl -fsS http://localhost:8080/actuator/health || exit 1"]

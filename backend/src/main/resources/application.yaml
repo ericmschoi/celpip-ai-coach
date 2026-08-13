@@ -70,6 +70,11 @@ app:
       - audio/mpeg
       - audio/wav
     retain-recordings: ${APP_SPEAKING_RETAIN_RECORDINGS:false}
+  media:
+    ffmpeg-path: ${APP_MEDIA_FFMPEG_PATH:ffmpeg}
+    ffprobe-path: ${APP_MEDIA_FFPROBE_PATH:ffprobe}
+    # Empty means the system temp directory.
+    temp-dir: ${APP_MEDIA_TEMP_DIR:}
   storage:
     mode: ${APP_STORAGE_MODE:LOCAL}
     dynamodb-table: ${APP_DYNAMODB_TABLE:}
@@ -84,6 +89,9 @@ app:
     scoring-model: ${OPENAI_SCORING_MODEL:gpt-5.6-terra}
     tts-model: ${OPENAI_TTS_MODEL:gpt-4o-mini-tts}
     transcription-model: ${OPENAI_TRANSCRIPTION_MODEL:gpt-transcribe}
+    # Word timestamps come from a second pass; only whisper-1 supports them.
+    # Set to an empty value to skip timing analysis and its extra request.
+    timing-model: ${OPENAI_TIMING_MODEL:whisper-1}
     request-timeout: ${OPENAI_REQUEST_TIMEOUT:120s}
     max-retries: ${OPENAI_MAX_RETRIES:2}
 

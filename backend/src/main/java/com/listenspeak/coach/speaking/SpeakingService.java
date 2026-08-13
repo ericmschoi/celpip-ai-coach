@@ -15,6 +15,11 @@ import com.listenspeak.coach.speaking.domain.SpeakingEvaluation;
 import com.listenspeak.coach.speaking.domain.SpeakingPrompt;
 import com.listenspeak.coach.speaking.evaluation.RecordingAnalyzer;
 import com.listenspeak.coach.speaking.evaluation.ScoreGuard;
+import com.listenspeak.coach.speaking.evaluation.SpeechPresence;
+import com.listenspeak.coach.speaking.evaluation.TimingAnalysis;
+import com.listenspeak.coach.speaking.evaluation.TranscriptionResult;
+import com.listenspeak.coach.speaking.evaluation.WordTimingAnalyzer;
+import com.listenspeak.coach.speaking.domain.TimingMetrics;
 import com.listenspeak.coach.speaking.evaluation.SpeakingScorer;
 import com.listenspeak.coach.speaking.evaluation.Transcriber;
 import com.listenspeak.coach.speaking.prompts.PromptGenerator;
@@ -46,6 +51,7 @@ public class SpeakingService {
     private final List<PromptGenerator> promptGenerators;
     private final List<SpeakingScorer> scorers;
     private final Transcriber transcriber;
+    private final java.util.Optional<WordTimingAnalyzer> timingAnalyzer;
     private final RecordingAnalyzer analyzer;
     private final ScoreGuard scoreGuard;
     private final SpeakingRepository repository;
@@ -57,6 +63,7 @@ public class SpeakingService {
             List<PromptGenerator> promptGenerators,
             List<SpeakingScorer> scorers,
             Transcriber transcriber,
+            java.util.Optional<WordTimingAnalyzer> timingAnalyzer,
             RecordingAnalyzer analyzer,
             ScoreGuard scoreGuard,
             SpeakingRepository repository,
@@ -66,6 +73,7 @@ public class SpeakingService {
         this.promptGenerators = List.copyOf(promptGenerators);
         this.scorers = List.copyOf(scorers);
         this.transcriber = transcriber;
+        this.timingAnalyzer = timingAnalyzer;
         this.analyzer = analyzer;
         this.scoreGuard = scoreGuard;
         this.repository = repository;
@@ -114,20 +122,41 @@ public class SpeakingService {
         try (UploadedRecording upload = UploadedRecording.accept(recording, properties.speaking())) {
             RecordingAnalyzer.Measurements measurements = measure(upload);
             requireSensibleDuration(measurements, prompt);
+            requireSpeech(measurements);
 
             usageLimiter.consume(ownerId, LimitedAction.SPEAKING_EVALUATION);
 
-            String transcript = transcriber.transcribe(upload.path(), upload.filename());
+            TranscriptionResult transcription = transcriber.transcribe(upload.path(), upload.filename());
+            String transcript = transcription.text().trim();
+
+            // A transcriber that can hear but returned nothing means the audio
+            // held no recognisable speech. A transcriber that cannot hear at all
+            // is a missing capability, not a silent user - and the difference
+            // has to survive all the way to the screen.
+            boolean transcriptAvailable = transcriber.producesRealTranscript();
+            if (transcriptAvailable && transcript.isEmpty()) {
+                throw ApiException.validation(
+                        "No speech could be recognised in that recording. Check your microphone and try again.");
+            }
+
+            // Second pass, only for word timings. Its text is never shown and
+            // never used for content, vocabulary, or task-fulfilment scoring.
+            TimingAnalysis timing = transcriptAvailable
+                    ? timingAnalyzer
+                            .map(analyzerBean -> analyzerBean.analyze(upload.path(), upload.filename()))
+                            .orElseGet(() -> TimingAnalysis.unavailable("none", "No timing analyzer is configured."))
+                    : TimingAnalysis.unavailable("none", "There is no transcript to time.");
 
             DeliveryMetrics metrics = DeliveryMetrics.of(
                     transcript,
                     measurements.durationSeconds(),
                     prompt.answerSeconds(),
                     measurements.silenceRatio(),
-                    measurements.longestSilenceSeconds());
+                    measurements.longestSilenceSeconds(),
+                    TimingMetrics.from(timing));
 
             SpeakingScorer.Assessment assessment = scoreGuard.validate(
-                    scorer().score(task, promptText(prompt), transcript, metrics));
+                    scorer().score(task, promptText(prompt), transcript, transcriptAvailable, metrics));
 
             SpeakingEvaluation evaluation = new SpeakingEvaluation(
                     UUID.randomUUID(),
@@ -135,6 +164,8 @@ public class SpeakingService {
                     prompt.id(),
                     prompt.taskNumber(),
                     transcript,
+                    transcriptAvailable,
+                    qualityOf(transcription, timing),
                     metrics,
                     assessment.estimatedLevel(),
                     assessment.confidence(),
@@ -171,6 +202,27 @@ public class SpeakingService {
                 .orElseThrow(() -> ApiException.notFound("Evaluation"));
     }
 
+    /**
+     * Reports what actually happened rather than what was hoped for: which model
+     * produced the transcript, which produced the timings, and why timings are
+     * missing when they are.
+     */
+    private static SpeakingEvaluation.TranscriptionQuality qualityOf(
+            TranscriptionResult transcription, TimingAnalysis timing) {
+
+        return new SpeakingEvaluation.TranscriptionQuality(
+                transcription.model(),
+                transcription.responseFormat(),
+                transcription.verbatimRequested(),
+                transcription.latencyMillis(),
+                timing.hasWordTimestamps(),
+                timing.words().size(),
+                timing.model(),
+                timing.responseFormat(),
+                timing.latencyMillis(),
+                timing.unavailableReason());
+    }
+
     private RecordingAnalyzer.Measurements measure(UploadedRecording upload) {
         try {
             return analyzer.analyze(upload.path());
@@ -179,6 +231,18 @@ public class SpeakingService {
                     ErrorCode.UNSUPPORTED_MEDIA_TYPE,
                     "That file could not be read as audio. Try recording again.",
                     e);
+        }
+    }
+
+    /**
+     * Refuses an empty recording outright. Without this, someone who pressed
+     * stop immediately or had a muted microphone would receive an evaluation of
+     * silence, which reads exactly like an evaluation of speech.
+     */
+    private void requireSpeech(RecordingAnalyzer.Measurements measurements) {
+        if (!SpeechPresence.hasSpeech(measurements)) {
+            throw ApiException.validation(
+                    "That recording is silent. Check that your microphone is working, then record your answer again.");
         }
     }
 

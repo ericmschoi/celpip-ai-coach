@@ -28,30 +28,45 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class AudioPipelineTest {
 
-    private static Ffmpeg ffmpeg;
+    private Ffmpeg ffmpeg;
     private AudioQualityGate qualityGate;
     private AudioAssembler assembler;
 
     @TempDir
     Path scratch;
 
+    /** Isolated so leftover-directory counts cannot see another process's work. */
+    @TempDir
+    Path workRoot;
+
     @BeforeAll
     static void checkFfmpeg() {
-        ffmpeg = new Ffmpeg("ffmpeg", "ffprobe");
-        assumeThat(ffmpeg.isAvailable())
+        assumeThat(new Ffmpeg("ffmpeg", "ffprobe").isAvailable())
                 .as("ffmpeg must be installed to run the audio pipeline tests")
                 .isTrue();
     }
 
     @BeforeEach
     void setUp() {
+        ffmpeg = new Ffmpeg("ffmpeg", "ffprobe", workRoot.toString());
         qualityGate = new AudioQualityGate(ffmpeg);
         assembler = new AudioAssembler(ffmpeg, qualityGate);
     }
 
-    /** A tone at a realistic speech level, which passes the quality gate. */
+    /**
+     * A tone at a realistic speech level, which passes the quality gate.
+     *
+     * <p>The filename carries a unique counter because DialogueRenderer calls
+     * the fake text-to-speech concurrently: a name derived only from frequency
+     * and duration let two threads write and read the same file at once, which
+     * truncated segments and failed assembly intermittently.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger toneCounter =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private byte[] tone(double seconds, int frequency) {
-        Path file = scratch.resolve("tone-%d-%s.wav".formatted(frequency, seconds));
+        Path file = scratch.resolve(
+                "tone-%d-%s-%d.wav".formatted(frequency, seconds, toneCounter.incrementAndGet()));
         Ffmpeg.Result result = ffmpeg.ffmpeg(List.of(
                 "-loglevel", "error",
                 "-f", "lavfi",
@@ -140,25 +155,23 @@ class AudioPipelineTest {
 
     @Test
     void leavesNoTemporaryFilesBehindWhenAssemblyFails() {
-        Path tempRoot = Path.of(System.getProperty("java.io.tmpdir"));
-        long before = countWorkDirectories(tempRoot);
+        long before = countWorkDirectories(workRoot);
 
         // Bytes that are not decodable audio at all.
         var broken = List.of(new AudioAssembler.Segment("not audio".getBytes(), 0));
 
         assertThatThrownBy(() -> assembler.assemble(broken)).isInstanceOf(MediaProcessingException.class);
 
-        assertThat(countWorkDirectories(tempRoot)).isEqualTo(before);
+        assertThat(countWorkDirectories(workRoot)).isEqualTo(before);
     }
 
     @Test
     void leavesNoTemporaryFilesBehindOnSuccessEither() {
-        Path tempRoot = Path.of(System.getProperty("java.io.tmpdir"));
-        long before = countWorkDirectories(tempRoot);
+        long before = countWorkDirectories(workRoot);
 
         assembler.assemble(List.of(new AudioAssembler.Segment(tone(25, 440), 0)));
 
-        assertThat(countWorkDirectories(tempRoot)).isEqualTo(before);
+        assertThat(countWorkDirectories(workRoot)).isEqualTo(before);
     }
 
     // --- quality gate ------------------------------------------------------

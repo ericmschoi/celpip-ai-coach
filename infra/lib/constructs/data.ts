@@ -41,7 +41,9 @@ export class Data extends Construct {
       // AWS-owned key: encrypted at rest with no monthly KMS key charge.
       encryption: dynamodb.TableEncryptionV2.dynamoOwnedKey(),
       timeToLiveAttribute: 'expiresAt',
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: !props.destroyOnRemove },
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: !props.destroyOnRemove,
+      },
       removalPolicy,
     });
 

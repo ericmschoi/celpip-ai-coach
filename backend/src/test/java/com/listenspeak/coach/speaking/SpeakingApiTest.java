@@ -74,6 +74,25 @@ class SpeakingApiTest {
         }
     }
 
+    /** Digital silence, i.e. what a muted microphone or an instant stop produces. */
+    private static byte[] silentRecording(double seconds) {
+        Path file = scratch.resolve("silence-%s.webm".formatted(seconds));
+        Ffmpeg.Result result = ffmpeg.ffmpeg(List.of(
+                "-loglevel", "error",
+                "-f", "lavfi",
+                "-i", "anullsrc=r=48000:cl=mono",
+                "-t", String.valueOf(seconds),
+                "-c:a", "libopus",
+                "-b:a", "24k",
+                file.toString()));
+        assertThat(result.succeeded()).as(result.output()).isTrue();
+        try {
+            return Files.readAllBytes(file);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
     private String createPrompt(String user, int taskNumber) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/speaking/tasks/" + taskNumber + "/prompts")
                         .header(LocalStubAuthenticationFilter.HEADER, user))
@@ -179,7 +198,7 @@ class SpeakingApiTest {
     // --- evaluation --------------------------------------------------------
 
     @Test
-    void returnsAllFourDimensionsWithEvidenceAndAClampedLevel() throws Exception {
+    void returnsAllFourDimensionsWithEvidence() throws Exception {
         String promptId = createPrompt(OWNER, 1);
 
         mockMvc.perform(multipart("/api/v1/speaking/evaluations")
@@ -191,14 +210,105 @@ class SpeakingApiTest {
                 .andExpect(jsonPath("$.dimensions[*].dimension")
                         .value(Matchers.containsInAnyOrder(
                                 "CONTENT_COHERENCE", "VOCABULARY", "LISTENABILITY", "TASK_FULFILLMENT")))
-                .andExpect(jsonPath("$.dimensions[*].evidence").value(Matchers.everyItem(Matchers.not(Matchers.emptyString()))))
-                .andExpect(jsonPath("$.estimatedLevel").value(Matchers.allOf(
-                        Matchers.greaterThanOrEqualTo(1), Matchers.lessThanOrEqualTo(12))))
+                .andExpect(jsonPath("$.dimensions[*].evidence")
+                        .value(Matchers.everyItem(Matchers.not(Matchers.emptyString()))))
                 .andExpect(jsonPath("$.confidence").value(Matchers.oneOf("LOW", "MEDIUM", "HIGH")))
                 .andExpect(jsonPath("$.strengths", Matchers.hasSize(2)))
                 .andExpect(jsonPath("$.improvements", Matchers.hasSize(2)))
                 .andExpect(jsonPath("$.sampleAnswer").isNotEmpty())
                 .andExpect(jsonPath("$.nextDrill").isNotEmpty());
+    }
+
+    // --- never speak for the user ------------------------------------------
+
+    @Test
+    void demoModeReturnsAnEmptyTranscriptRatherThanInventingOne() throws Exception {
+        String promptId = createPrompt(OWNER, 1);
+
+        mockMvc.perform(multipart("/api/v1/speaking/evaluations")
+                        .file(audioPart(recording(40), "audio/webm"))
+                        .param("promptId", promptId)
+                        .header(LocalStubAuthenticationFilter.HEADER, OWNER))
+                .andExpect(status().isOk())
+                // Nothing listened to this audio, so there is nothing to show.
+                .andExpect(jsonPath("$.transcript").value(""))
+                .andExpect(jsonPath("$.transcriptAvailable").value(false));
+    }
+
+    @Test
+    void demoModeNeverAttributesWordsToTheUser() throws Exception {
+        String promptId = createPrompt(OWNER, 1);
+
+        String body = mockMvc.perform(multipart("/api/v1/speaking/evaluations")
+                        .file(audioPart(recording(40), "audio/webm"))
+                        .param("promptId", promptId)
+                        .header(LocalStubAuthenticationFilter.HEADER, OWNER))
+                .andExpect(status().isOk())
+                // Corrections quote the speaker, so with no transcript there can be none.
+                .andExpect(jsonPath("$.corrections", Matchers.hasSize(0)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // The sample answer that a previous version fabricated as the user's words.
+        assertThat(body).doesNotContain("I think she should probably take the promotion");
+    }
+
+    @Test
+    void demoModeGivesNoOverallLevelBecauseNothingAssessedTheLanguage() throws Exception {
+        String promptId = createPrompt(OWNER, 1);
+
+        mockMvc.perform(multipart("/api/v1/speaking/evaluations")
+                        .file(audioPart(recording(40), "audio/webm"))
+                        .param("promptId", promptId)
+                        .header(LocalStubAuthenticationFilter.HEADER, OWNER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estimatedLevel").doesNotExist());
+    }
+
+    @Test
+    void demoModeMarksTheLanguageDimensionsAsNotAssessedInsteadOfScoringThem() throws Exception {
+        String promptId = createPrompt(OWNER, 1);
+
+        mockMvc.perform(multipart("/api/v1/speaking/evaluations")
+                        .file(audioPart(recording(40), "audio/webm"))
+                        .param("promptId", promptId)
+                        .header(LocalStubAuthenticationFilter.HEADER, OWNER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dimensions[?(@.dimension == 'CONTENT_COHERENCE')].assessed")
+                        .value(Matchers.contains(false)))
+                .andExpect(jsonPath("$.dimensions[?(@.dimension == 'VOCABULARY')].assessed")
+                        .value(Matchers.contains(false)))
+                // Delivery really was measured, so those two stay scored.
+                .andExpect(jsonPath("$.dimensions[?(@.dimension == 'TASK_FULFILLMENT')].assessed")
+                        .value(Matchers.contains(true)))
+                .andExpect(jsonPath("$.dimensions[?(@.dimension == 'LISTENABILITY')].assessed")
+                        .value(Matchers.contains(true)));
+    }
+
+    @Test
+    void rejectsASilentRecordingInsteadOfEvaluatingNothing() throws Exception {
+        String promptId = createPrompt(OWNER, 1);
+
+        mockMvc.perform(multipart("/api/v1/speaking/evaluations")
+                        .file(audioPart(silentRecording(30), "audio/webm"))
+                        .param("promptId", promptId)
+                        .header(LocalStubAuthenticationFilter.HEADER, OWNER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.detail").value(Matchers.containsString("silent")));
+    }
+
+    @Test
+    void rejectsARecordingWithBarelyAnySoundAtAll() throws Exception {
+        String promptId = createPrompt(OWNER, 1);
+
+        mockMvc.perform(multipart("/api/v1/speaking/evaluations")
+                        .file(audioPart(recording(1.2), "audio/webm"))
+                        .param("promptId", promptId)
+                        .header(LocalStubAuthenticationFilter.HEADER, OWNER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
@@ -226,7 +336,10 @@ class SpeakingApiTest {
                 .andExpect(jsonPath("$.metrics.allowedSeconds").value(90))
                 .andExpect(jsonPath("$.metrics.durationSeconds")
                         .value(Matchers.allOf(Matchers.greaterThan(35.0), Matchers.lessThan(45.0))))
-                .andExpect(jsonPath("$.metrics.wordCount").value(Matchers.greaterThan(0)));
+                .andExpect(jsonPath("$.metrics.timeUsedPercent").value(Matchers.greaterThan(0)))
+                // Word count comes from a transcript, and demo mode has none, so
+                // it must read zero rather than a number from invented text.
+                .andExpect(jsonPath("$.metrics.wordCount").value(0));
     }
 
     @Test

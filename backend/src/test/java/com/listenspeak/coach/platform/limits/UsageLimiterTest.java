@@ -36,7 +36,15 @@ class UsageLimiterTest {
                         Duration.ofMinutes(15),
                         Duration.ofDays(30)),
                 new AppProperties.OpenAi(
-                        null, "https://api.openai.com/v1", "g", "s", "t", "x", Duration.ofSeconds(60), 2));
+                        null,
+                        "https://api.openai.com/v1",
+                        "g",
+                        "s",
+                        "t",
+                        "x",
+                        "whisper-1",
+                        Duration.ofSeconds(60),
+                        2));
     }
 
     private UsageLimiter limiterAt(Instant instant, AppProperties properties) {

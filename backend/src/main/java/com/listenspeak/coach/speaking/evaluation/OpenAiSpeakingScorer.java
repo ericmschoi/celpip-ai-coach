@@ -61,7 +61,21 @@ public class OpenAiSpeakingScorer implements SpeakingScorer {
     }
 
     @Override
-    public Assessment score(SpeakingTask task, String promptText, String transcript, DeliveryMetrics metrics) {
+    public Assessment score(
+            SpeakingTask task,
+            String promptText,
+            String transcript,
+            boolean transcriptAvailable,
+            DeliveryMetrics metrics) {
+
+        if (!transcriptAvailable || transcript.isBlank()) {
+            // The live scorer judges language from a transcript. Without one
+            // there is nothing to judge, and guessing is not an option.
+            throw new ApiException(
+                    ErrorCode.VALIDATION_FAILED,
+                    "There was no speech to assess in that recording.");
+        }
+
         var request = new StructuredResponses.Request(
                 properties.openai().scoringModel(),
                 ScoringPrompts.systemPrompt(),
@@ -86,16 +100,14 @@ public class OpenAiSpeakingScorer implements SpeakingScorer {
     private Assessment toAssessment(AssessmentDocument document) {
         try {
             return new Assessment(
-                    document.estimatedLevel() == null
-                            ? SpeakingEvaluation.MIN_LEVEL
-                            : document.estimatedLevel(),
+                    document.estimatedLevel(),
                     document.confidence() == null ? Confidence.LOW : Confidence.valueOf(document.confidence()),
                     document.dimensions() == null
                             ? List.of()
                             : document.dimensions().stream()
                                     .map(dimension -> new DimensionScore(
                                             Dimension.valueOf(dimension.dimension()),
-                                            dimension.score() == null ? 1 : dimension.score(),
+                                            dimension.score(),
                                             dimension.evidence()))
                                     .toList(),
                     document.strengths() == null ? List.of() : document.strengths(),

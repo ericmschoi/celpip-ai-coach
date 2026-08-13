@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,9 @@ import org.springframework.stereotype.Component;
  * dimension, an out-of-range number that slipped through, or an overall level
  * that contradicts its own dimension scores. All of that is fixed or rejected
  * here.
+ *
+ * <p>A null score means "not assessed" and is preserved as such. Substituting a
+ * number for it would be inventing a judgement nobody made.
  */
 @Component
 public class ScoreGuard {
@@ -35,15 +39,26 @@ public class ScoreGuard {
     public SpeakingScorer.Assessment validate(SpeakingScorer.Assessment assessment) {
         List<DimensionScore> dimensions = normalizeDimensions(assessment.dimensions());
 
-        int level = SpeakingEvaluation.clampLevel(assessment.estimatedLevel());
-        int mean = (int) Math.round(
-                dimensions.stream().mapToInt(DimensionScore::score).average().orElse(level));
+        Integer level = SpeakingEvaluation.clampLevel(assessment.estimatedLevel());
 
-        if (Math.abs(level - mean) > MAX_DIVERGENCE) {
-            // The overall level must be explainable by its own dimension scores.
-            log.warn("Clamping estimated level {} towards dimension mean {}", level, mean);
-            level = mean + Integer.signum(level - mean) * MAX_DIVERGENCE;
-            level = SpeakingEvaluation.clampLevel(level);
+        OptionalDouble mean = dimensions.stream()
+                .filter(DimensionScore::assessed)
+                .mapToInt(DimensionScore::score)
+                .average();
+
+        if (mean.isEmpty()) {
+            // Nothing was assessed, so no overall level can be justified.
+            if (level != null) {
+                log.warn("Dropping an overall level of {} because no dimension was assessed", level);
+            }
+            level = null;
+        } else if (level != null) {
+            int rounded = (int) Math.round(mean.getAsDouble());
+            if (Math.abs(level - rounded) > MAX_DIVERGENCE) {
+                // The overall level must be explainable by its own dimension scores.
+                log.warn("Clamping estimated level {} towards dimension mean {}", level, rounded);
+                level = SpeakingEvaluation.clampLevel(rounded + Integer.signum(level - rounded) * MAX_DIVERGENCE);
+            }
         }
 
         if (isBlank(assessment.sampleAnswer())) {
@@ -66,8 +81,8 @@ public class ScoreGuard {
     }
 
     /**
-     * All four dimensions must be present exactly once, each with a clamped
-     * score and non-empty evidence.
+     * All four dimensions must be present exactly once, each either carrying a
+     * clamped score or explicitly unassessed, and each with non-empty evidence.
      */
     private List<DimensionScore> normalizeDimensions(List<DimensionScore> reported) {
         Map<Dimension, DimensionScore> byDimension = new EnumMap<>(Dimension.class);

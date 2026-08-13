@@ -37,15 +37,19 @@ export const evaluationSchema = z.object({
   id: z.string().uuid(),
   promptId: z.string().uuid(),
   taskNumber: z.number().int(),
-  estimatedLevel: z.number().int().min(1).max(12),
+  // Null when no honest estimate is possible; the UI must not invent one.
+  estimatedLevel: z.number().int().min(1).max(12).nullable().optional(),
   confidence: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   disclaimer: z.string(),
+  // False when nothing could be transcribed, so nothing here is the user's words.
+  transcriptAvailable: z.boolean(),
   dimensions: z
     .array(
       z.object({
         dimension: z.enum(DIMENSION_ORDER),
         label: z.string(),
-        score: z.number().int().min(1).max(12),
+        score: z.number().int().min(1).max(12).nullable().optional(),
+        assessed: z.boolean(),
         evidence: z.string(),
       }),
     )
@@ -60,6 +64,20 @@ export const evaluationSchema = z.object({
   sampleAnswer: z.string(),
   nextDrill: z.string(),
   transcript: z.string(),
+  // Diagnostics for the transcription step; used by the live verification run.
+  transcriptionQuality: z.object({
+    transcriptModel: z.string(),
+    transcriptResponseFormat: z.string(),
+    verbatimRequested: z.boolean(),
+    transcriptLatencyMillis: z.number().int(),
+    wordTimestampsAvailable: z.boolean(),
+    timedWordCount: z.number().int(),
+    timingModel: z.string(),
+    timingResponseFormat: z.string(),
+    timingLatencyMillis: z.number().int(),
+    // Present only when timing is unavailable, explaining why.
+    timingUnavailableReason: z.string().nullable().optional(),
+  }),
   metrics: z.object({
     durationSeconds: z.number(),
     allowedSeconds: z.number().int(),
@@ -70,6 +88,11 @@ export const evaluationSchema = z.object({
     repeatedStarts: z.number().int(),
     silencePercent: z.number().int(),
     longestSilenceSeconds: z.number(),
+    // Null when word timestamps were unavailable. Never zero-filled.
+    speakingSeconds: z.number().nullable().optional(),
+    wordsPerMinuteFromTimestamps: z.number().int().nullable().optional(),
+    pauseCount: z.number().int().nullable().optional(),
+    longestPauseSeconds: z.number().nullable().optional(),
   }),
   createdAt: z.string(),
 });

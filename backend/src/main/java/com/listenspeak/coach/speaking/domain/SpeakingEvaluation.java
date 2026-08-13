@@ -10,7 +10,16 @@ import java.util.UUID;
  * <p>Every numeric score is clamped on the server before it gets here, so a
  * model cannot produce a level of 47 or a negative dimension score.
  *
- * @param estimatedLevel unofficial 1-12 estimate. Never described as an official score.
+ * <p>Scores are nullable on purpose. When something could not be assessed - most
+ * obviously when no transcription is available and so nothing is known about
+ * what was actually said - the honest representation is the absence of a score,
+ * not a number derived from something else.
+ *
+ * @param transcript exactly what was said, or empty when transcription was unavailable
+ * @param transcriptAvailable false when nothing could be transcribed, so no part
+ *     of this evaluation may be presented as the user's own words
+ * @param estimatedLevel unofficial 1-12 estimate, or null when it cannot be
+ *     honestly estimated. Never described as an official score.
  * @param confidence how much weight the estimate deserves given the evidence available
  */
 public record SpeakingEvaluation(
@@ -19,8 +28,10 @@ public record SpeakingEvaluation(
         UUID promptId,
         int taskNumber,
         String transcript,
+        boolean transcriptAvailable,
+        TranscriptionQuality transcriptionQuality,
         DeliveryMetrics metrics,
-        int estimatedLevel,
+        Integer estimatedLevel,
         Confidence confidence,
         List<DimensionScore> dimensions,
         List<String> strengths,
@@ -33,6 +44,32 @@ public record SpeakingEvaluation(
 
     public static final int MIN_LEVEL = 1;
     public static final int MAX_LEVEL = 12;
+
+    /**
+     * How the transcript and the timings were obtained.
+     *
+     * <p>There is no confidence field. The primary transcription model does not
+     * return logprobs, and whisper's {@code avg_logprob} is uncalibrated, so any
+     * number here would be invented. Missing timing is reported with its reason
+     * rather than as zero.
+     */
+    public record TranscriptionQuality(
+            String transcriptModel,
+            String transcriptResponseFormat,
+            boolean verbatimRequested,
+            long transcriptLatencyMillis,
+            boolean wordTimestampsAvailable,
+            int timedWordCount,
+            String timingModel,
+            String timingResponseFormat,
+            long timingLatencyMillis,
+            String timingUnavailableReason) {
+
+        public static TranscriptionQuality unavailable() {
+            return new TranscriptionQuality(
+                    "none", "none", false, 0, false, 0, "none", "none", 0, "No transcription was performed.");
+        }
+    }
 
     public enum Confidence {
         LOW,
@@ -59,9 +96,16 @@ public record SpeakingEvaluation(
     }
 
     /**
-     * @param evidence must quote the user's own transcript or a delivery metric
+     * @param score 1-12, or null when this dimension could not be assessed
+     * @param evidence must quote the user's own transcript or a delivery metric,
+     *     or state plainly why the dimension was not assessed
      */
-    public record DimensionScore(Dimension dimension, int score, String evidence) {}
+    public record DimensionScore(Dimension dimension, Integer score, String evidence) {
+
+        public boolean assessed() {
+            return score != null;
+        }
+    }
 
     public record Improvement(String issue, String whyItMatters, String howToFix) {}
 
@@ -78,8 +122,8 @@ public record SpeakingEvaluation(
         corrections = List.copyOf(corrections);
     }
 
-    public static int clampLevel(int value) {
-        return Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, value));
+    public static Integer clampLevel(Integer value) {
+        return value == null ? null : Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, value));
     }
 
     public boolean isOwnedBy(String userId) {

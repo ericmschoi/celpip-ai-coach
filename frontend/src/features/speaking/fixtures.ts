@@ -37,27 +37,32 @@ export const evaluationFixture: SpeakingEvaluation = {
   estimatedLevel: 8,
   confidence: 'MEDIUM',
   disclaimer: 'This is an AI estimate for practice only, not an official CELPIP score.',
+  transcriptAvailable: true,
   dimensions: [
     {
       dimension: 'CONTENT_COHERENCE',
+      assessed: true,
       label: 'Content and Coherence',
       score: 8,
       evidence: 'You gave a position and two reasons, and the order was easy to follow.',
     },
     {
       dimension: 'VOCABULARY',
+      assessed: true,
       label: 'Vocabulary',
       score: 7,
       evidence: 'You reused "big thing" where a more precise phrase was available.',
     },
     {
       dimension: 'LISTENABILITY',
+      assessed: true,
       label: 'Listenability',
       score: 7,
       evidence: 'Pace was 142 words per minute with five fillers.',
     },
     {
       dimension: 'TASK_FULFILLMENT',
+      assessed: true,
       label: 'Task Fulfillment',
       score: 9,
       evidence: 'You addressed the friend directly and gave a clear recommendation.',
@@ -90,6 +95,18 @@ export const evaluationFixture: SpeakingEvaluation = {
   nextDrill: 'Record the same task again and aim to use at least 90 percent of the time.',
   transcript:
     'So, um, I think she should probably take the promotion, because it is a lot more money…',
+  transcriptionQuality: {
+    transcriptModel: 'gpt-transcribe',
+    transcriptResponseFormat: 'json',
+    verbatimRequested: true,
+    transcriptLatencyMillis: 2140,
+    wordTimestampsAvailable: true,
+    timedWordCount: 168,
+    timingModel: 'whisper-1',
+    timingResponseFormat: 'verbose_json',
+    timingLatencyMillis: 1880,
+    timingUnavailableReason: null,
+  },
   metrics: {
     durationSeconds: 78.4,
     allowedSeconds: 90,
@@ -102,4 +119,61 @@ export const evaluationFixture: SpeakingEvaluation = {
     longestSilenceSeconds: 2.1,
   },
   createdAt: '2026-08-11T19:05:00Z',
+};
+
+/**
+ * Demo mode: nothing transcribed the answer, so nothing may be attributed to
+ * the speaker. This is the shape a previous version got wrong.
+ */
+export const untranscribedEvaluationFixture: SpeakingEvaluation = {
+  ...evaluationFixture,
+  estimatedLevel: null,
+  confidence: 'LOW',
+  transcriptAvailable: false,
+  transcript: '',
+  corrections: [],
+  dimensions: [
+    {
+      dimension: 'CONTENT_COHERENCE',
+      label: 'Content and Coherence',
+      score: null,
+      assessed: false,
+      evidence: 'Not assessed: demo mode has no AI provider configured.',
+    },
+    {
+      dimension: 'VOCABULARY',
+      label: 'Vocabulary',
+      score: null,
+      assessed: false,
+      evidence: 'Not assessed: demo mode has no AI provider configured.',
+    },
+    {
+      dimension: 'LISTENABILITY',
+      label: 'Listenability',
+      score: 8,
+      assessed: true,
+      evidence: 'Measured from your recording: 12% of it was silence.',
+    },
+    {
+      dimension: 'TASK_FULFILLMENT',
+      label: 'Task Fulfillment',
+      score: 9,
+      assessed: true,
+      evidence: 'Measured from your recording: you used 87% of the time available.',
+    },
+  ],
+  sampleAnswer: 'A strong answer to a task like this states a position in the first sentence.',
+  transcriptionQuality: {
+    transcriptModel: 'none',
+    transcriptResponseFormat: 'none',
+    verbatimRequested: false,
+    transcriptLatencyMillis: 0,
+    wordTimestampsAvailable: false,
+    timedWordCount: 0,
+    timingModel: 'none',
+    timingResponseFormat: 'none',
+    timingLatencyMillis: 0,
+    timingUnavailableReason: 'No transcription was performed.',
+  },
+  metrics: { ...evaluationFixture.metrics, wordCount: 0, wordsPerMinute: 0, fillerCount: 0 },
 };

@@ -14,6 +14,11 @@ dimensions.
 
 ---
 
+> **Provider status:** the OpenAI transcription and scoring steps have **never been called**. They
+> are implemented and covered by mocked tests, which proves the wiring and nothing about accuracy.
+> See [docs/live-verification.md](docs/live-verification.md) for the one controlled run that closes
+> that gap. Listening generation and TTS are in the same position.
+
 ## Status
 
 | Phase                            | State          |
@@ -21,7 +26,7 @@ dimensions.
 | 1 — Foundation                   | ✅ done        |
 | 2 — Listening vertical slice     | ✅ done        |
 | 3 — Speaking vertical slice      | ✅ done        |
-| 4 — Private AWS deployment       | ⬜ not started |
+| 4 — Private AWS deployment       | 🟡 built, not deployed |
 | 5 — Handoff                      | ⬜ not started |
 
 What works today: the full Listening flow, end to end. Pick a part and difficulty, get an original
@@ -142,14 +147,22 @@ make help           # full list
 
 ## AWS deployment
 
-Not yet enabled — phase 4. When it lands, `docs/aws-runbook.md` will cover deploy, private user
-creation, secret rotation, log access, budget alerts, and teardown. Nothing in this repository
-creates billable resources until you explicitly run `cdk deploy` and approve the cost summary.
+The infrastructure is written and `cdk synth` passes, but **nothing has been deployed**. No AWS
+resource exists and nothing is being billed until you run `cdk deploy` yourself.
 
-Planned recurring cost categories for a personal `dev` environment: ECS Fargate task hours
-(the dominant cost), Application Load Balancer hours, CloudFront and S3 request/storage,
-DynamoDB on-demand requests, CloudWatch log ingestion, Secrets Manager secret-months, and
-OpenAI usage (billed separately by OpenAI, not AWS).
+See [docs/aws-runbook.md](docs/aws-runbook.md) for the full procedure: bootstrap, deploy, put the
+OpenAI key in Secrets Manager, create the private Cognito user, smoke test, view logs, rotate the
+key, set budget alerts, and destroy everything.
+
+```bash
+make infra-synth                      # no credentials needed, creates nothing
+cd infra && npx cdk diff -c env=dev   # needs credentials, still creates nothing
+```
+
+Recurring cost categories for a personal `dev` environment: ECS Fargate task hours (the dominant
+cost), Application Load Balancer hours, CloudFront and S3 request/storage, DynamoDB on-demand
+requests, CloudWatch log ingestion, Secrets Manager secret-months, ECR image storage, and OpenAI
+usage (billed separately by OpenAI, not AWS).
 
 ## Security notes
 
