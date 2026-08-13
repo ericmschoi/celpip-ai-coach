@@ -66,12 +66,17 @@ export const evaluationSchema = z.object({
   transcript: z.string(),
   // Diagnostics for the transcription step; used by the live verification run.
   transcriptionQuality: z.object({
-    wordTimestampsAvailable: z.boolean(),
-    wordCount: z.number().int(),
-    averageWordConfidence: z.number().nullable().optional(),
-    latencyMillis: z.number().int(),
-    responseFormat: z.string(),
+    transcriptModel: z.string(),
+    transcriptResponseFormat: z.string(),
     verbatimRequested: z.boolean(),
+    transcriptLatencyMillis: z.number().int(),
+    wordTimestampsAvailable: z.boolean(),
+    timedWordCount: z.number().int(),
+    timingModel: z.string(),
+    timingResponseFormat: z.string(),
+    timingLatencyMillis: z.number().int(),
+    // Present only when timing is unavailable, explaining why.
+    timingUnavailableReason: z.string().nullable().optional(),
   }),
   metrics: z.object({
     durationSeconds: z.number(),
@@ -83,6 +88,11 @@ export const evaluationSchema = z.object({
     repeatedStarts: z.number().int(),
     silencePercent: z.number().int(),
     longestSilenceSeconds: z.number(),
+    // Null when word timestamps were unavailable. Never zero-filled.
+    speakingSeconds: z.number().nullable().optional(),
+    wordsPerMinuteFromTimestamps: z.number().int().nullable().optional(),
+    pauseCount: z.number().int().nullable().optional(),
+    longestPauseSeconds: z.number().nullable().optional(),
   }),
   createdAt: z.string(),
 });

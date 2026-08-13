@@ -46,21 +46,28 @@ public record SpeakingEvaluation(
     public static final int MAX_LEVEL = 12;
 
     /**
-     * How the transcript was obtained. Recorded so a live accuracy check can
-     * state what the provider actually supported, rather than assuming.
+     * How the transcript and the timings were obtained.
      *
-     * @param averageWordConfidence null when the model reported no logprobs
+     * <p>There is no confidence field. The primary transcription model does not
+     * return logprobs, and whisper's {@code avg_logprob} is uncalibrated, so any
+     * number here would be invented. Missing timing is reported with its reason
+     * rather than as zero.
      */
     public record TranscriptionQuality(
+            String transcriptModel,
+            String transcriptResponseFormat,
+            boolean verbatimRequested,
+            long transcriptLatencyMillis,
             boolean wordTimestampsAvailable,
-            int wordCount,
-            Double averageWordConfidence,
-            long latencyMillis,
-            String responseFormat,
-            boolean verbatimRequested) {
+            int timedWordCount,
+            String timingModel,
+            String timingResponseFormat,
+            long timingLatencyMillis,
+            String timingUnavailableReason) {
 
         public static TranscriptionQuality unavailable() {
-            return new TranscriptionQuality(false, 0, null, 0, "none", false);
+            return new TranscriptionQuality(
+                    "none", "none", false, 0, false, 0, "none", "none", 0, "No transcription was performed.");
         }
     }
 

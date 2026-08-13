@@ -101,6 +101,8 @@ public record AppProperties(
             @NotNull String scoringModel,
             @NotNull String ttsModel,
             @NotNull String transcriptionModel,
+            /** Timing-analysis model. Only whisper-1 returns word timestamps; blank disables timing. */
+            String timingModel,
             @NotNull Duration requestTimeout,
             @Min(0) int maxRetries) {
 

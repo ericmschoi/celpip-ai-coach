@@ -28,7 +28,9 @@ public record DeliveryMetrics(
         int fillerCount,
         int repeatedStarts,
         double silenceRatio,
-        double longestSilenceSeconds) {
+        double longestSilenceSeconds,
+        /** Null when the timing pass produced no word timestamps. Never zero-filled. */
+        TimingMetrics timing) {
 
     /** Common English fillers. Kept short on purpose: a long list produces false positives. */
     private static final List<String> FILLERS =
@@ -51,6 +53,16 @@ public record DeliveryMetrics(
             int allowedSeconds,
             double silenceRatio,
             double longestSilenceSeconds) {
+        return of(transcript, durationSeconds, allowedSeconds, silenceRatio, longestSilenceSeconds, null);
+    }
+
+    public static DeliveryMetrics of(
+            String transcript,
+            double durationSeconds,
+            int allowedSeconds,
+            double silenceRatio,
+            double longestSilenceSeconds,
+            TimingMetrics timing) {
 
         String normalized = transcript.toLowerCase(Locale.ROOT);
         List<String> words = WORD.matcher(normalized).results().map(match -> match.group()).toList();
@@ -66,7 +78,8 @@ public record DeliveryMetrics(
                 countFillers(normalized, words),
                 countRepeatedStarts(words),
                 round(silenceRatio),
-                round(longestSilenceSeconds));
+                round(longestSilenceSeconds),
+                timing);
     }
 
     private static int countFillers(String normalized, List<String> words) {
@@ -124,6 +137,9 @@ public record DeliveryMetrics(
                         fillerCount,
                         repeatedStarts,
                         silenceRatio * 100,
-                        longestSilenceSeconds);
+                        longestSilenceSeconds)
+                + (timing == null
+                        ? "word timestamps: unavailable, so pause locations were not measured\n"
+                        : timing.summary());
     }
 }

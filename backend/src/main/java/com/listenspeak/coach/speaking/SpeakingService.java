@@ -16,7 +16,10 @@ import com.listenspeak.coach.speaking.domain.SpeakingPrompt;
 import com.listenspeak.coach.speaking.evaluation.RecordingAnalyzer;
 import com.listenspeak.coach.speaking.evaluation.ScoreGuard;
 import com.listenspeak.coach.speaking.evaluation.SpeechPresence;
+import com.listenspeak.coach.speaking.evaluation.TimingAnalysis;
 import com.listenspeak.coach.speaking.evaluation.TranscriptionResult;
+import com.listenspeak.coach.speaking.evaluation.WordTimingAnalyzer;
+import com.listenspeak.coach.speaking.domain.TimingMetrics;
 import com.listenspeak.coach.speaking.evaluation.SpeakingScorer;
 import com.listenspeak.coach.speaking.evaluation.Transcriber;
 import com.listenspeak.coach.speaking.prompts.PromptGenerator;
@@ -48,6 +51,7 @@ public class SpeakingService {
     private final List<PromptGenerator> promptGenerators;
     private final List<SpeakingScorer> scorers;
     private final Transcriber transcriber;
+    private final java.util.Optional<WordTimingAnalyzer> timingAnalyzer;
     private final RecordingAnalyzer analyzer;
     private final ScoreGuard scoreGuard;
     private final SpeakingRepository repository;
@@ -59,6 +63,7 @@ public class SpeakingService {
             List<PromptGenerator> promptGenerators,
             List<SpeakingScorer> scorers,
             Transcriber transcriber,
+            java.util.Optional<WordTimingAnalyzer> timingAnalyzer,
             RecordingAnalyzer analyzer,
             ScoreGuard scoreGuard,
             SpeakingRepository repository,
@@ -68,6 +73,7 @@ public class SpeakingService {
         this.promptGenerators = List.copyOf(promptGenerators);
         this.scorers = List.copyOf(scorers);
         this.transcriber = transcriber;
+        this.timingAnalyzer = timingAnalyzer;
         this.analyzer = analyzer;
         this.scoreGuard = scoreGuard;
         this.repository = repository;
@@ -133,12 +139,21 @@ public class SpeakingService {
                         "No speech could be recognised in that recording. Check your microphone and try again.");
             }
 
+            // Second pass, only for word timings. Its text is never shown and
+            // never used for content, vocabulary, or task-fulfilment scoring.
+            TimingAnalysis timing = transcriptAvailable
+                    ? timingAnalyzer
+                            .map(analyzerBean -> analyzerBean.analyze(upload.path(), upload.filename()))
+                            .orElseGet(() -> TimingAnalysis.unavailable("none", "No timing analyzer is configured."))
+                    : TimingAnalysis.unavailable("none", "There is no transcript to time.");
+
             DeliveryMetrics metrics = DeliveryMetrics.of(
                     transcript,
                     measurements.durationSeconds(),
                     prompt.answerSeconds(),
                     measurements.silenceRatio(),
-                    measurements.longestSilenceSeconds());
+                    measurements.longestSilenceSeconds(),
+                    TimingMetrics.from(timing));
 
             SpeakingScorer.Assessment assessment = scoreGuard.validate(
                     scorer().score(task, promptText(prompt), transcript, transcriptAvailable, metrics));
@@ -150,7 +165,7 @@ public class SpeakingService {
                     prompt.taskNumber(),
                     transcript,
                     transcriptAvailable,
-                    qualityOf(transcription),
+                    qualityOf(transcription, timing),
                     metrics,
                     assessment.estimatedLevel(),
                     assessment.confidence(),
@@ -187,16 +202,25 @@ public class SpeakingService {
                 .orElseThrow(() -> ApiException.notFound("Evaluation"));
     }
 
-    private static SpeakingEvaluation.TranscriptionQuality qualityOf(TranscriptionResult transcription) {
+    /**
+     * Reports what actually happened rather than what was hoped for: which model
+     * produced the transcript, which produced the timings, and why timings are
+     * missing when they are.
+     */
+    private static SpeakingEvaluation.TranscriptionQuality qualityOf(
+            TranscriptionResult transcription, TimingAnalysis timing) {
+
         return new SpeakingEvaluation.TranscriptionQuality(
-                transcription.hasWordTimestamps(),
-                transcription.words().size(),
-                transcription.averageWordConfidence().isPresent()
-                        ? transcription.averageWordConfidence().getAsDouble()
-                        : null,
-                transcription.latencyMillis(),
+                transcription.model(),
                 transcription.responseFormat(),
-                transcription.verbatimRequested());
+                transcription.verbatimRequested(),
+                transcription.latencyMillis(),
+                timing.hasWordTimestamps(),
+                timing.words().size(),
+                timing.model(),
+                timing.responseFormat(),
+                timing.latencyMillis(),
+                timing.unavailableReason());
     }
 
     private RecordingAnalyzer.Measurements measure(UploadedRecording upload) {

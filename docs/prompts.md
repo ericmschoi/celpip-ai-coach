@@ -246,6 +246,10 @@ runs on every assessment, whatever produced it:
 A transcript is a claim about what someone said, so it may only ever contain words they actually
 said. Three rules enforce this:
 
+0. **Transcription is asked for verbatim output.** The primary model receives a
+   disfluency-preserving prompt plus the filler words as `keywords`. Without that, a transcription
+   model produces readable text — dropping "um", merging false starts — and the filler and repetition
+   counts derived from it become meaningless while still looking like measurements.
 1. **`SeedTranscriber` returns an empty string.** It cannot hear, so it reports nothing. An earlier
    version returned a fixed sample answer, which the results screen then displayed under "What we
    heard" — including when the user had recorded silence. That was fabrication and is now covered by

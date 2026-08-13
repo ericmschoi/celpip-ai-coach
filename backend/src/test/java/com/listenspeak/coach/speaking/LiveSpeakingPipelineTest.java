@@ -8,8 +8,11 @@ import com.listenspeak.coach.speaking.evaluation.RecordingAnalyzer;
 import com.listenspeak.coach.speaking.evaluation.ScoreGuard;
 import com.listenspeak.coach.speaking.evaluation.SpeakingScorer;
 import com.listenspeak.coach.speaking.evaluation.TranscriptAccuracy;
+import com.listenspeak.coach.speaking.domain.TimingMetrics;
+import com.listenspeak.coach.speaking.evaluation.TimingAnalysis;
 import com.listenspeak.coach.speaking.evaluation.TranscriptionResult;
 import com.listenspeak.coach.speaking.evaluation.Transcriber;
+import com.listenspeak.coach.speaking.evaluation.WordTimingAnalyzer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -51,6 +54,9 @@ class LiveSpeakingPipelineTest {
     private Transcriber transcriber;
 
     @Autowired
+    private WordTimingAnalyzer timingAnalyzer;
+
+    @Autowired
     private RecordingAnalyzer analyzer;
 
     @Autowired
@@ -78,14 +84,16 @@ class LiveSpeakingPipelineTest {
 
         TranscriptionResult transcription = transcriber.transcribe(recording, recording.getFileName().toString());
 
-        // --- 2. local measurement -------------------------------------------
+        // --- 2. timing pass and local measurement ----------------------------
+        TimingAnalysis timing = timingAnalyzer.analyze(recording, recording.getFileName().toString());
         RecordingAnalyzer.Measurements measurements = analyzer.analyze(recording);
         DeliveryMetrics metrics = DeliveryMetrics.of(
                 transcription.text(),
                 measurements.durationSeconds(),
                 (int) task.answer().toSeconds(),
                 measurements.silenceRatio(),
-                measurements.longestSilenceSeconds());
+                measurements.longestSilenceSeconds(),
+                TimingMetrics.from(timing));
 
         // --- 3. accuracy against the reference -------------------------------
         TranscriptAccuracy.Report accuracy = TranscriptAccuracy.compare(referenceText, transcription.text());
@@ -101,7 +109,7 @@ class LiveSpeakingPipelineTest {
                 scorer.score(task, "Live test of task " + task.taskNumber(), transcription.text(), true, metrics));
         long scoringMillis = (System.nanoTime() - scoringStartedAt) / 1_000_000;
 
-        report(task, transcription, accuracy, metrics, assessment, scoringMillis);
+        report(task, transcription, timing, accuracy, metrics, assessment, scoringMillis);
 
         // --- assertions: the pipeline genuinely worked ------------------------
         assertThat(transcription.text()).as("1. recognised transcript").isNotBlank();
@@ -118,6 +126,7 @@ class LiveSpeakingPipelineTest {
     private void report(
             SpeakingTask task,
             TranscriptionResult transcription,
+            TimingAnalysis timing,
             TranscriptAccuracy.Report accuracy,
             DeliveryMetrics metrics,
             SpeakingScorer.Assessment assessment,
@@ -148,15 +157,20 @@ class LiveSpeakingPipelineTest {
                         accuracy.referenceRepetitions()));
 
         out.append("5. WORD TIMESTAMP AVAILABILITY\n");
-        out.append("   available: ").append(transcription.hasWordTimestamps())
-                .append("  (").append(transcription.words().size()).append(" timed words, format ")
-                .append(transcription.responseFormat()).append(")\n\n");
+        out.append("   available : ").append(timing.hasWordTimestamps()).append("\n");
+        out.append("   model     : ").append(timing.model())
+                .append(" (").append(timing.responseFormat()).append(")\n");
+        out.append("   timed words: ").append(timing.words().size())
+                .append(", segments: ").append(timing.segments().size()).append("\n");
+        if (!timing.available()) {
+            out.append("   reason    : ").append(timing.unavailableReason()).append("\n");
+        }
+        out.append("\n");
 
         out.append("6. AVERAGE WORD CONFIDENCE\n");
-        out.append("   ").append(transcription.averageWordConfidence().isPresent()
-                        ? "%.4f".formatted(transcription.averageWordConfidence().getAsDouble())
-                        : "not reported by this model")
-                .append("\n\n");
+        out.append("   unavailable. ").append(transcription.model())
+                .append(" does not return transcription logprobs, and whisper's avg_logprob is\n")
+                .append("   uncalibrated, so no confidence figure is reported rather than an invented one.\n\n");
 
         out.append("7. NORMALIZED WORD ERROR RATE\n");
         out.append("   %.2f%%  (%d substitutions, %d deletions, %d insertions over %d reference words)%n%n"
@@ -168,9 +182,13 @@ class LiveSpeakingPipelineTest {
                         accuracy.referenceWords()));
 
         out.append("8. AUDIO FORMAT AND LATENCY\n");
-        out.append("   response format     : ").append(transcription.responseFormat()).append("\n");
+        out.append("   transcript model    : ").append(transcription.model())
+                .append(" (").append(transcription.responseFormat()).append(")\n");
+        out.append("   timing model        : ").append(timing.model())
+                .append(" (").append(timing.responseFormat()).append(")\n");
         out.append("   verbatim requested  : ").append(transcription.verbatimRequested()).append("\n");
         out.append("   transcription       : ").append(transcription.latencyMillis()).append(" ms\n");
+        out.append("   timing              : ").append(timing.latencyMillis()).append(" ms\n");
         out.append("   scoring             : ").append(scoringMillis).append(" ms\n");
         out.append("   transcription tokens: in=").append(transcription.inputTokens())
                 .append(" out=").append(transcription.outputTokens()).append("\n\n");

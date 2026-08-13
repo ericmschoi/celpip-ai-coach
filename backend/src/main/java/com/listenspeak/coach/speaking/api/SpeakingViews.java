@@ -61,7 +61,12 @@ public final class SpeakingViews {
             int fillerCount,
             int repeatedStarts,
             int silencePercent,
-            double longestSilenceSeconds) {
+            double longestSilenceSeconds,
+            /** All null when word timestamps were unavailable; never zero-filled. */
+            Double speakingSeconds,
+            Integer wordsPerMinuteFromTimestamps,
+            Integer pauseCount,
+            Double longestPauseSeconds) {
 
         public static MetricsView of(DeliveryMetrics metrics) {
             return new MetricsView(
@@ -73,19 +78,31 @@ public final class SpeakingViews {
                     metrics.fillerCount(),
                     metrics.repeatedStarts(),
                     (int) Math.round(metrics.silenceRatio() * 100),
-                    metrics.longestSilenceSeconds());
+                    metrics.longestSilenceSeconds(),
+                    metrics.timing() == null ? null : metrics.timing().speakingSeconds(),
+                    metrics.timing() == null ? null : (int) Math.round(metrics.timing().wordsPerMinute()),
+                    metrics.timing() == null ? null : metrics.timing().pauseCount(),
+                    metrics.timing() == null ? null : metrics.timing().longestPauseSeconds());
         }
     }
 
     /** {@code score} is null when the dimension could not be assessed. */
-    /** Diagnostics for the transcription step; shown only in the live report. */
+    /**
+     * Which models and formats actually ran. Diagnostics for the live
+     * verification run; deliberately carries no confidence number, because
+     * neither model returns a calibrated one.
+     */
     public record TranscriptionQualityView(
+            String transcriptModel,
+            String transcriptResponseFormat,
+            boolean verbatimRequested,
+            long transcriptLatencyMillis,
             boolean wordTimestampsAvailable,
-            int wordCount,
-            Double averageWordConfidence,
-            long latencyMillis,
-            String responseFormat,
-            boolean verbatimRequested) {}
+            int timedWordCount,
+            String timingModel,
+            String timingResponseFormat,
+            long timingLatencyMillis,
+            String timingUnavailableReason) {}
 
     public record DimensionView(
             String dimension, String label, Integer score, boolean assessed, String evidence) {}
@@ -149,12 +166,16 @@ public final class SpeakingViews {
                     evaluation.nextDrill(),
                     evaluation.transcript(),
                     new TranscriptionQualityView(
+                            evaluation.transcriptionQuality().transcriptModel(),
+                            evaluation.transcriptionQuality().transcriptResponseFormat(),
+                            evaluation.transcriptionQuality().verbatimRequested(),
+                            evaluation.transcriptionQuality().transcriptLatencyMillis(),
                             evaluation.transcriptionQuality().wordTimestampsAvailable(),
-                            evaluation.transcriptionQuality().wordCount(),
-                            evaluation.transcriptionQuality().averageWordConfidence(),
-                            evaluation.transcriptionQuality().latencyMillis(),
-                            evaluation.transcriptionQuality().responseFormat(),
-                            evaluation.transcriptionQuality().verbatimRequested()),
+                            evaluation.transcriptionQuality().timedWordCount(),
+                            evaluation.transcriptionQuality().timingModel(),
+                            evaluation.transcriptionQuality().timingResponseFormat(),
+                            evaluation.transcriptionQuality().timingLatencyMillis(),
+                            evaluation.transcriptionQuality().timingUnavailableReason()),
                     MetricsView.of(evaluation.metrics()),
                     evaluation.createdAt());
         }
